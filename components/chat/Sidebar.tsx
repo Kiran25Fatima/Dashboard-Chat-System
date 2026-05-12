@@ -5,59 +5,102 @@ import { supabase } from "@/lib/supabaseClient";
 
 export default function Sidebar({ onSelectUser }: any) {
   const [users, setUsers] = useState<any[]>([]);
-  const [currentUserId, setCurrentUserId] = useState("")
+  const [onlineMap, setOnlineMap] = useState<any>({});
+
+  const loadUsers = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    const currentUserId = userData.user?.id;
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .neq("id", currentUserId);
+
+    if (data) setUsers(data);
+  };
 
   useEffect(() => {
-    const init = async () => {
-      const { data: userData } = await supabase.auth.getUser()
+    loadUsers();
 
-      const userId = userData.user?.id
+    const channel = supabase.channel("online-users");
 
-      if (!userId) return
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
 
-      setCurrentUserId(userId)
+        const onlineUsers: any = {};
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .neq("id", userId)
+        Object.keys(state).forEach((key) => {
+          state[key].forEach((p: any) => {
+            onlineUsers[p.user_id] = true;
+          });
+        });
 
-      if (data) setUsers(data)
-    }
+        setOnlineMap(onlineUsers);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          const { data } = await supabase.auth.getUser();
 
-    init()
-  }, [])
+          if (data.user) {
+            await channel.track({
+              user_id: data.user.id,
+              online_at: new Date().toISOString(),
+            });
+          }
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
-    <div className="w-80  p-4 bg-white">
+    <div className="w-80 bg-white border-r flex flex-col">
+      <div className="p-4 border-b">
+        <h2 className="font-semibold text-lg">Chats</h2>
+      </div>
 
-      <h2 className="font-semibold text-lg mb-4">
-        Chats
-      </h2>
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {users.map((user) => {
+          const isOnline = onlineMap[user.id];
 
-      <div className="space-y-2">
-        {users.length === 0 ? (
-          <p className="text-sm text-gray-400">
-            No users found
-          </p>
-        ) : (
-          users.map((user) => (
+          return (
             <div
               key={user.id}
               onClick={() => onSelectUser(user)}
-              className="p-3 rounded-xl cursor-pointer hover:bg-gray-100 transition flex items-center gap-3"
+              className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-gray-100"
             >
-              <div className="w-9 h-9 rounded-full bg-orange-400 text-white flex items-center justify-center text-sm">
-  {user.full_name?.charAt(0)}
-</div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center font-medium">
+                  {user.full_name?.charAt(0)}
+                </div>
 
-              <span className="text-sm font-medium">
-                {user.full_name}
-              </span>
+                <div>
+                  <div className="text-sm font-medium">{user.full_name}</div>
+
+                  <div className="text-xs">
+                    {isOnline ? (
+                      <span className="text-green-600 font-medium">
+                        online
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">offline</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className={`w-2.5 h-2.5 rounded-full ${
+                  isOnline ? "bg-green-500" : "bg-gray-300"
+                }`}
+              />
             </div>
-          ))
-        )}
+          );
+        })}
       </div>
     </div>
-  )
+  );
 }
