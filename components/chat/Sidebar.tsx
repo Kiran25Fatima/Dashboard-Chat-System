@@ -62,6 +62,7 @@ export default function Sidebar({ onSelectUser }: any) {
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
           const { data } = await supabase.auth.getUser();
+
           if (data.user) {
             await channel.track({
               user_id: data.user.id,
@@ -82,43 +83,76 @@ export default function Sidebar({ onSelectUser }: any) {
 
   return (
     <div className="h-full flex flex-col bg-white">
-      <div className="px-3 pb-3 pt-3">
-        <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
 
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search conversations…"
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl bg-zinc-100 text-zinc-900 placeholder-zinc-500 border border-zinc-200 outline-none focus:border-violet-500 transition"
+      <div className="p-4 pb-3 bg-white sticky top-0 z-10">
+
+  <div className="relative group">
+
+    <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+      <svg
+        className="w-4 h-4 text-zinc-400 group-focus-within:text-violet-500 transition"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        viewBox="0 0 24 24"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.35-4.35" />
+      </svg>
+    </div>
+
+    <input
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      placeholder="Search chats"
+      className="w-full h-12 pl-11 pr-11 text-sm bg-zinc-100/70 hover:bg-zinc-100 focus:bg-white border border-transparent focus:border-violet-300 rounded-2xl outline-none transition-all duration-200 placeholder:text-zinc-400 shadow-sm focus:shadow-[0_0_0_4px_rgba(139,92,246,0.08)]"
+    />
+
+    {search && (
+      <button
+        onClick={() => setSearch("")}
+        className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition"
+      >
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.2}
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M6 18 18 6M6 6l12 12"
           />
+        </svg>
+      </button>
+    )}
+
+  </div>
+
+</div>
+
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-zinc-500">
+          Messages
+        </span>
+
+        <div className="text-xs text-zinc-400">
+          {filteredUsers.length}
         </div>
       </div>
 
-      <div className="px-4 mb-2">
-        <span className="text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
-          Direct Messages
-        </span>
-      </div>
+      <div className="flex-1 overflow-y-auto px-2 pb-3">
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-2 space-y-1">
-        {filteredUsers.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center mb-3">
+        {filteredUsers.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center px-6">
+            <div className="w-16 h-16 rounded-3xl bg-zinc-100 flex items-center justify-center mb-4">
               <svg
-                className="w-5 h-5 text-zinc-400"
+                className="w-7 h-7 text-zinc-400"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth={1.5}
+                strokeWidth={1.7}
                 viewBox="0 0 24 24"
               >
                 <path
@@ -128,73 +162,83 @@ export default function Sidebar({ onSelectUser }: any) {
                 />
               </svg>
             </div>
-            <p className="text-sm text-zinc-500">
+
+            <h3 className="text-sm font-semibold text-zinc-800">
               No users found
+            </h3>
+
+            <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+              Try searching with another name
             </p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {filteredUsers.map((user) => {
+              const isOnline = onlineMap[user.id];
+              const isActive = activeUserId === user.id;
+
+              return (
+                <button
+                  key={user.id}
+                  onClick={() => {
+                    setActiveUserId(user.id);
+                    onSelectUser(user);
+                  }}
+                  className={`w-full group relative flex items-center gap-3 px-3 py-3 rounded-2xl border transition-all duration-200 ${
+                    isActive
+                      ? "bg-violet-50 border-violet-200 shadow-sm"
+                      : "bg-white border-transparent hover:bg-zinc-50"
+                  }`}
+                >
+
+                  <div className="relative shrink-0">
+                    <div
+                      className={`w-11 h-11 rounded-2xl bg-linear-to-br ${getAvatarColor(
+                        user.id
+                      )} flex items-center justify-center text-sm font-semibold text-white shadow-sm`}
+                    >
+                      {getInitials(user.full_name)}
+                    </div>
+
+                    <span
+                      className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${
+                        isOnline ? "bg-emerald-400" : "bg-zinc-300"
+                      }`}
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0 text-left">
+                    <h3
+                      className={`text-sm truncate ${
+                        isActive
+                          ? "text-violet-700 font-semibold"
+                          : "text-zinc-900 font-medium"
+                      }`}
+                    >
+                      {user.full_name}
+                    </h3>
+
+                    <p
+                      className={`text-xs mt-0.5 ${
+                        isOnline
+                          ? "text-emerald-500"
+                          : "text-zinc-500"
+                      }`}
+                    >
+                      {isOnline ? "Active now" : "Offline"}
+                    </p>
+                  </div>
+
+                  {isActive && (
+                    <div className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
+                  )}
+
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {filteredUsers.map((user) => {
-          const isOnline = onlineMap[user.id];
-          const isActive = activeUserId === user.id;
-
-          return (
-            <button
-              key={user.id}
-              onClick={() => {
-                setActiveUserId(user.id);
-                onSelectUser(user);
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition ${
-                isActive
-                  ? "bg-violet-100 border border-violet-300"
-                  : "hover:bg-zinc-100 border border-transparent"
-              }`}
-            >
-              <div className="relative shrink-0">
-                <div
-                  className={`w-10 h-10 rounded-full bg-linear-to-br ${getAvatarColor(
-                    user.id
-                  )} flex items-center justify-center text-xs font-bold text-white shadow`}
-                >
-                  {getInitials(user.full_name)}
-                </div>
-
-                <span
-                  className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-                    isOnline ? "bg-emerald-400" : "bg-zinc-500"
-                  }`}
-                />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div
-                  className={`text-sm font-medium truncate ${
-                    isActive
-                      ? "text-violet-700"
-                      : "text-zinc-900"
-                  }`}
-                >
-                  {user.full_name}
-                </div>
-
-                <div
-                  className={`text-xs ${
-                    isOnline
-                      ? "text-emerald-500"
-                      : "text-zinc-500"
-                  }`}
-                >
-                  {isOnline ? "Active now" : "Offline"}
-                </div>
-              </div>
-
-              {isActive && (
-                <div className="w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
-              )}
-            </button>
-          );
-        })}
       </div>
     </div>
   );
