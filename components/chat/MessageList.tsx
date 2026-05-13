@@ -98,10 +98,10 @@ export default function MessageList({ conversationId }: any) {
 
   if (messages.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center px-8 py-12 bg-white dark:bg-zinc-950">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center mb-4 shadow">
+      <div className="h-full flex flex-col items-center justify-center text-center px-8 py-12 bg-white">
+        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center mb-4 shadow">
           <svg
-            className="w-7 h-7 text-zinc-400 dark:text-zinc-500"
+            className="w-7 h-7 text-zinc-400"
             fill="none"
             stroke="currentColor"
             strokeWidth={1.5}
@@ -114,10 +114,10 @@ export default function MessageList({ conversationId }: any) {
             />
           </svg>
         </div>
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-200">
+        <h3 className="text-base font-semibold text-zinc-900">
           No messages yet
         </h3>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs">
+        <p className="text-sm text-zinc-500 mt-1 max-w-xs">
           Say hello — messages are delivered in real time.
         </p>
       </div>
@@ -139,11 +139,11 @@ export default function MessageList({ conversationId }: any) {
     if (showDateDivider) {
       rendered.push(
         <div key={`date-${msg.id}`} className="flex items-center gap-3 px-4 py-3">
-          <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+          <div className="flex-1 h-px bg-zinc-200" />
           <span className="text-[11px] font-medium text-zinc-500 px-2">
             {formatDateLabel(msg.created_at)}
           </span>
-          <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+          <div className="flex-1 h-px bg-zinc-200" />
         </div>
       );
     }
@@ -165,14 +165,14 @@ export default function MessageList({ conversationId }: any) {
           <div
             className={`px-4 py-2.5 text-sm leading-relaxed wrap-break-words ${
               isMe
-                ? `bg-violet-600 dark:bg-violet-600 text-white shadow ${
+                ? `bg-violet-600 text-white shadow ${
                     isGrouped
                       ? "rounded-2xl rounded-br-md"
                       : isLast
                       ? "rounded-2xl rounded-br-md"
                       : "rounded-2xl"
                   }`
-                : `bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 ${
+                : `bg-white text-zinc-900 border border-zinc-200 ${
                     isGrouped
                       ? "rounded-2xl rounded-bl-md"
                       : isLast
@@ -185,7 +185,7 @@ export default function MessageList({ conversationId }: any) {
           </div>
 
           {isLast && (
-            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1 px-1">
+            <span className="text-[10px] text-zinc-500 mt-1 px-1">
               {formatTime(msg.created_at)}
             </span>
           )}
@@ -196,7 +196,7 @@ export default function MessageList({ conversationId }: any) {
   });
 
   return (
-    <div className="flex flex-col py-2 bg-white dark:bg-zinc-950">
+    <div className="flex flex-col py-2 bg-white">
       {rendered}
       <div ref={bottomRef} className="h-4" />
     </div>

@@ -81,7 +81,7 @@ export default function Sidebar({ onSelectUser }: any) {
   );
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-zinc-900">
+    <div className="h-full flex flex-col bg-white">
       <div className="px-3 pb-3 pt-3">
         <div className="relative">
           <svg
@@ -99,13 +99,13 @@ export default function Sidebar({ onSelectUser }: any) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search conversations…"
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 border border-zinc-200 dark:border-zinc-700 outline-none focus:border-violet-500 transition"
+            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl bg-zinc-100 text-zinc-900 placeholder-zinc-500 border border-zinc-200 outline-none focus:border-violet-500 transition"
           />
         </div>
       </div>
 
       <div className="px-4 mb-2">
-        <span className="text-[10px] font-semibold tracking-widest text-zinc-500 dark:text-zinc-400 uppercase">
+        <span className="text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
           Direct Messages
         </span>
       </div>
@@ -113,7 +113,7 @@ export default function Sidebar({ onSelectUser }: any) {
       <div className="flex-1 min-h-0 overflow-y-auto px-2 space-y-1">
         {filteredUsers.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+            <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center mb-3">
               <svg
                 className="w-5 h-5 text-zinc-400"
                 fill="none"
@@ -128,7 +128,7 @@ export default function Sidebar({ onSelectUser }: any) {
                 />
               </svg>
             </div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm text-zinc-500">
               No users found
             </p>
           </div>
@@ -147,8 +147,8 @@ export default function Sidebar({ onSelectUser }: any) {
               }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition ${
                 isActive
-                  ? "bg-violet-100 dark:bg-violet-600/20 border border-violet-300 dark:border-violet-500/30"
-                  : "hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-transparent"
+                  ? "bg-violet-100 border border-violet-300"
+                  : "hover:bg-zinc-100 border border-transparent"
               }`}
             >
               <div className="relative shrink-0">
@@ -161,7 +161,7 @@ export default function Sidebar({ onSelectUser }: any) {
                 </div>
 
                 <span
-                  className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-zinc-900 ${
+                  className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
                     isOnline ? "bg-emerald-400" : "bg-zinc-500"
                   }`}
                 />
@@ -171,8 +171,8 @@ export default function Sidebar({ onSelectUser }: any) {
                 <div
                   className={`text-sm font-medium truncate ${
                     isActive
-                      ? "text-violet-700 dark:text-violet-200"
-                      : "text-zinc-900 dark:text-zinc-100"
+                      ? "text-violet-700"
+                      : "text-zinc-900"
                   }`}
                 >
                   {user.full_name}
@@ -182,7 +182,7 @@ export default function Sidebar({ onSelectUser }: any) {
                   className={`text-xs ${
                     isOnline
                       ? "text-emerald-500"
-                      : "text-zinc-500 dark:text-zinc-400"
+                      : "text-zinc-500"
                   }`}
                 >
                   {isOnline ? "Active now" : "Offline"}
