@@ -48,15 +48,15 @@ export default function MessageInput({ conversationId, senderId, onMessageSent }
   const canSend = message.trim().length > 0 && !!conversationId && !loading;
 
   return (
-    <div className="px-4 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 backdrop-blur">
+    <div className="px-4 py-3 border-t border-zinc-200 bg-white/80 backdrop-blur">
       <div
-        className={`flex items-end gap-2.5 rounded-2xl border transition-all duration-200 bg-zinc-100 dark:bg-zinc-800/60 ${
+        className={`flex items-end gap-2.5 rounded-2xl border transition-all duration-200 bg-zinc-100 ${
           message
-            ? "border-zinc-300 dark:border-zinc-600/60"
-            : "border-zinc-200 dark:border-zinc-700/40"
+            ? "border-zinc-300"
+            : "border-zinc-200"
         } px-3 py-2.5`}
       >
-        <button className="w-7 h-7 shrink-0 mb-0.5 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700/50">
+        <button className="w-7 h-7 shrink-0 mb-0.5 flex items-center justify-center text-zinc-500 hover:text-zinc-900 transition-colors rounded-lg hover:bg-zinc-200">
           <svg
             className="w-5 h-5"
             fill="none"
@@ -79,11 +79,11 @@ export default function MessageInput({ conversationId, senderId, onMessageSent }
           onKeyDown={handleKeyDown}
           placeholder="Write a message… (Enter to send)"
           rows={1}
-          className="flex-1 bg-transparent outline-none text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 resize-none leading-relaxed py-0.5 max-h-36 overflow-y-auto"
+          className="flex-1 bg-transparent outline-none text-sm text-zinc-900 placeholder-zinc-500 resize-none leading-relaxed py-0.5 max-h-36 overflow-y-auto"
           style={{ height: "auto", minHeight: "22px" }}
         />
 
-        <button className="w-7 h-7 shrink-0 mb-0.5 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700/50">
+        <button className="w-7 h-7 shrink-0 mb-0.5 flex items-center justify-center text-zinc-500 hover:text-zinc-900 transition-colors rounded-lg hover:bg-zinc-200">
           <svg
             className="w-5 h-5"
             fill="none"
@@ -105,7 +105,7 @@ export default function MessageInput({ conversationId, senderId, onMessageSent }
           className={`w-8 h-8 shrink-0 mb-0.5 flex items-center justify-center rounded-xl transition-all duration-200 ${
             canSend
               ? "bg-violet-600 hover:bg-violet-500 active:scale-95 shadow-lg shadow-violet-900/30 text-white"
-              : "bg-zinc-200 dark:bg-zinc-700/50 text-zinc-500 cursor-not-allowed"
+              : "bg-zinc-200 text-zinc-500 cursor-not-allowed"
           }`}
         >
           {loading ? (
@@ -128,7 +128,7 @@ export default function MessageInput({ conversationId, senderId, onMessageSent }
         </button>
       </div>
 
-      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 text-center mt-2">
+      <p className="text-[10px] text-zinc-500 text-center mt-2">
         Shift + Enter for new line · Enter to send
       </p>
     </div>

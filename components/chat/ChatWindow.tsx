@@ -73,8 +73,8 @@ export default function ChatWindow({ selectedUser }: any) {
 
   if (!selectedUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 gap-4">
-        <div className="w-20 h-20 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow-sm">
+      <div className="flex-1 flex flex-col items-center justify-center bg-zinc-50 gap-4">
+        <div className="w-20 h-20 rounded-2xl bg-white border border-zinc-200 flex items-center justify-center shadow-sm">
           <svg
             className="w-9 h-9 text-zinc-400"
             fill="none"
@@ -91,10 +91,10 @@ export default function ChatWindow({ selectedUser }: any) {
         </div>
 
         <div className="text-center">
-          <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-200">
+          <h3 className="text-base font-semibold text-zinc-900">
             No conversation selected
           </h3>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+          <p className="text-sm text-zinc-500 mt-1">
             Choose someone from the sidebar to start chatting
           </p>
         </div>
@@ -103,8 +103,8 @@ export default function ChatWindow({ selectedUser }: any) {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-zinc-50 dark:bg-zinc-950">
-      <div className="shrink-0 px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/60 backdrop-blur flex items-center gap-3 shadow-sm">
+    <div className="flex-1 flex flex-col min-h-0 bg-zinc-50">
+      <div className="shrink-0 px-5 py-3.5 border-b border-zinc-200 bg-white/80 backdrop-blur flex items-center gap-3 shadow-sm">
         <div className="relative">
           <div
             className={`w-10 h-10 rounded-full bg-linear-to-br ${getAvatarColor(
@@ -113,11 +113,11 @@ export default function ChatWindow({ selectedUser }: any) {
           >
             {getInitials(selectedUser.full_name)}
           </div>
-          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-zinc-900 bg-emerald-400" />
+          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white bg-emerald-400" />
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+          <p className="text-sm font-semibold text-zinc-900 truncate">
             {selectedUser.full_name}
           </p>
           
@@ -139,7 +139,7 @@ export default function ChatWindow({ selectedUser }: any) {
             <button
               key={label}
               title={label}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition"
             >
               <svg
                 className="w-4.5 h-4.5"
@@ -161,8 +161,8 @@ export default function ChatWindow({ selectedUser }: any) {
         ) : (
           <div className="h-full flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 rounded-full border-2 border-zinc-300 dark:border-zinc-700 border-t-violet-500 animate-spin" />
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              <div className="w-8 h-8 rounded-full border-2 border-zinc-300 border-t-violet-500 animate-spin" />
+              <p className="text-sm text-zinc-500">
                 {loading ? "Setting up conversation…" : "Ready"}
               </p>
             </div>
@@ -171,7 +171,7 @@ export default function ChatWindow({ selectedUser }: any) {
       </div>
 
       {user && (
-        <div className="shrink-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800">
+        <div className="shrink-0 bg-white border-t border-zinc-200">
           <MessageInput
             conversationId={conversationId}
             senderId={user.id}

@@ -16,9 +16,9 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-sans antialiased">
-      <aside className="w-72 shrink-0 flex flex-col bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800">
-        <div className="h-14 px-4 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+    <div className="h-screen flex overflow-hidden bg-zinc-50 text-zinc-900 font-sans antialiased">
+      <aside className="w-72 shrink-0 flex flex-col bg-white border-r border-zinc-200">
+        <div className="h-14 px-4 flex items-center justify-between border-b border-zinc-200 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-linear-to-br from-violet-500 to-purple-700 flex items-center justify-center shadow-lg shadow-violet-900/20">
               <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -27,14 +27,14 @@ export default function DashboardPage() {
               </svg>
             </div>
             <div>
-              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-none">Messages</div>
-              <div className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight mt-0.5">Realtime chat</div>
+              <div className="text-sm font-semibold text-zinc-900 leading-none">Messages</div>
+              <div className="text-[10px] text-zinc-500 leading-tight mt-0.5">Realtime chat</div>
             </div>
           </div>
 
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 transition"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 border border-transparent hover:border-zinc-200 transition"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
@@ -48,7 +48,7 @@ export default function DashboardPage() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-h-0 min-w-0 bg-zinc-50 dark:bg-zinc-950">
+      <main className="flex-1 flex flex-col min-h-0 min-w-0 bg-zinc-50">
         <ChatWindow selectedUser={selectedUser} />
       </main>
     </div>
