@@ -7,6 +7,7 @@ import EmojiPicker from "emoji-picker-react";
 export default function MessageInput({
   conversationId,
   senderId,
+  receiverId,
   onMessageSent,
 }: any) {
   const [message, setMessage] = useState("");
@@ -38,7 +39,10 @@ export default function MessageInput({
     const { error } = await supabase.from("messages").insert({
       conversation_id: conversationId,
       sender_id: senderId,
+      receiver_id: receiverId,
       message: message.trim(),
+      status: "sent",
+      is_read: false
     });
 
     setLoading(false);

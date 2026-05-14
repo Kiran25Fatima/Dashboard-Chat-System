@@ -86,7 +86,20 @@ export default function MessageList({ conversationId }: any) {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new]);
+          const msg = payload.new;
+          setMessages((prev) => [...prev, msg]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          setMessages((prev) => prev.map(m => m.id === payload.new.id ? payload.new : m));
         }
       )
       .subscribe();
@@ -209,14 +222,108 @@ export default function MessageList({ conversationId }: any) {
           </div>
 
           {isLast && (
-            <div
-              className={`mt-1.5 px-1 text-[11px] text-zinc-400 ${
-                isMe ? "text-right" : "text-left"
-              }`}
+  <div
+    className={`mt-1.5 px-1 text-[11px] font-medium tracking-tight text-zinc-400/80 ${
+      isMe ? "text-right" : "text-left"
+    }`}
+  >
+    <span className="inline-flex items-center gap-1 leading-none">
+
+      <span>{formatTime(msg.created_at)}</span>
+
+      {isMe && (
+        <span className="inline-flex items-center ml-1">
+
+          {msg.status === "sent" && (
+            <svg
+              viewBox="0 0 24 24"
+              className="w-4 h-4 text-zinc-400 opacity-90"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.2}
             >
-              {formatTime(msg.created_at)}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 12.5L10 17L19 7"
+              />
+            </svg>
+          )}
+
+          {msg.status === "delivered" && (
+            <div className="relative flex items-center w-5 h-4">
+
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute left-0 w-4 h-4 text-zinc-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 12.5L10 17L19 7"
+                />
+              </svg>
+
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute left-1.5 w-4 h-4 text-zinc-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 12.5L10 17L19 7"
+                />
+              </svg>
+
             </div>
           )}
+
+          {msg.status === "seen" && (
+            <div className="relative flex items-center w-5 h-4">
+
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute left-0 w-4 h-4 text-sky-500 transition-all duration-300"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 12.5L10 17L19 7"
+                />
+              </svg>
+
+              <svg
+                viewBox="0 0 24 24"
+                className="absolute left-1.5 w-4 h-4 text-sky-500 transition-all duration-300"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 12.5L10 17L19 7"
+                />
+              </svg>
+
+            </div>
+          )}
+
+        </span>
+      )}
+
+    </span>
+  </div>
+)}
 
         </div>
 

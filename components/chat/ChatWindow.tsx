@@ -80,6 +80,16 @@ export default function ChatWindow({ selectedUser }: any) {
           .eq("conversation_id", id)
           .neq("sender_id", user.id)
           .eq("is_read", false);
+
+        // Update status to seen for all messages from other user
+        await supabase
+          .from("messages")
+          .update({
+            status: "seen",
+            read_at: new Date().toISOString(),
+          })
+          .eq("conversation_id", id)
+          .neq("sender_id", user.id);
       }
 
       setLoading(false);
@@ -172,6 +182,7 @@ export default function ChatWindow({ selectedUser }: any) {
           <MessageInput
             conversationId={conversationId}
             senderId={user.id}
+             receiverId={selectedUser.id} 
             onMessageSent={() => {}}
           />
         </div>
