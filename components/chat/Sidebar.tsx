@@ -29,122 +29,171 @@ export default function Sidebar({ onSelectUser }: any) {
   const [search, setSearch] = useState("");
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [unreadMap, setUnreadMap] = useState<any>({});
+
   const loadUsers = async () => {
     const { data: userData } = await supabase.auth.getUser();
-    const currentUserId = userData.user?.id;
+    const userId = userData.user?.id;
 
-    const { data } = await supabase
+    setCurrentUserId(userId ?? null);
+
+    const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
-      .neq("id", currentUserId);
+      .neq("id", userId);
 
-    if (data) setUsers(data);
+   const { data: messages } = await supabase
+  .from("messages")
+  .select("sender_id, receiver_id, is_read")
+  .eq("receiver_id", userId)
+  .eq("is_read", false);
+
+const unread: any = {};
+
+messages?.forEach((m) => {
+  unread[m.sender_id] = (unread[m.sender_id] || 0) + 1;
+});
+
+    setUnreadMap(unread);
+    setUsers(profiles || []);
   };
 
-  useEffect(() => {
-    loadUsers();
+useEffect(() => {
+  loadUsers();
 
-    const channel = supabase.channel("online-users");
+  const channel = supabase.channel("online-users");
 
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        const onlineUsers: any = {};
+ const messageChannel = supabase
+  .channel("realtime-messages")
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "messages",
+    },
+    (payload) => {
+      const msg: any = payload.new;
 
-        Object.keys(state).forEach((key) => {
-          state[key].forEach((p: any) => {
-            onlineUsers[p.user_id] = true;
-          });
+      if (!currentUserId) return;
+
+      // NEW MESSAGE
+      if (
+        payload.eventType === "INSERT" &&
+        msg.receiver_id === currentUserId
+      ) {
+        setUnreadMap((prev: any) => ({
+          ...prev,
+          [msg.sender_id]: (prev[msg.sender_id] || 0) + 1,
+        }));
+      }
+
+      // READ UPDATE
+      if (
+        payload.eventType === "UPDATE" &&
+        msg.is_read === true
+      ) {
+        setUnreadMap((prev: any) => ({
+          ...prev,
+          [msg.sender_id]: Math.max((prev[msg.sender_id] || 1) - 1, 0),
+        }));
+      }
+    }
+  )
+  .subscribe();
+
+  channel
+    .on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState();
+      const onlineUsers: any = {};
+
+      Object.keys(state).forEach((key) => {
+        state[key].forEach((p: any) => {
+          onlineUsers[p.user_id] = true;
         });
-
-        setOnlineMap(onlineUsers);
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          const { data } = await supabase.auth.getUser();
-
-          if (data.user) {
-            await channel.track({
-              user_id: data.user.id,
-              online_at: new Date().toISOString(),
-            });
-          }
-        }
       });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+      setOnlineMap(onlineUsers);
+    })
+    .subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        const { data } = await supabase.auth.getUser();
 
-  const filteredUsers = users.filter((u) =>
-    u.full_name?.toLowerCase().includes(search.toLowerCase())
-  );
+        if (data.user) {
+          await channel.track({
+            user_id: data.user.id,
+            online_at: new Date().toISOString(),
+          });
+        }
+      }
+    });
+
+  return () => {
+    supabase.removeChannel(channel);
+    supabase.removeChannel(messageChannel);
+  };
+}, [currentUserId]);
+
+const filteredUsers = users.filter((u) =>
+  u.full_name?.toLowerCase().includes(search.toLowerCase())
+);
 
   return (
     <div className="h-full flex flex-col bg-white">
-
       <div className="p-4 pb-3 bg-white sticky top-0 z-10">
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+            <svg
+              className="w-4 h-4 text-zinc-400 group-focus-within:text-violet-500 transition"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+          </div>
 
-  <div className="relative group">
-
-    <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-      <svg
-        className="w-4 h-4 text-zinc-400 group-focus-within:text-violet-500 transition"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        viewBox="0 0 24 24"
-      >
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-    </div>
-
-    <input
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-      placeholder="Search chats"
-      className="w-full h-12 pl-11 pr-11 text-sm bg-zinc-100/70 hover:bg-zinc-100 focus:bg-white border border-transparent focus:border-violet-300 rounded-2xl outline-none transition-all duration-200 placeholder:text-zinc-400 shadow-sm focus:shadow-[0_0_0_4px_rgba(139,92,246,0.08)]"
-    />
-
-    {search && (
-      <button
-        onClick={() => setSearch("")}
-        className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition"
-      >
-        <svg
-          className="w-3.5 h-3.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.2}
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M6 18 18 6M6 6l12 12"
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search chats"
+            className="w-full h-12 pl-11 pr-11 text-sm bg-zinc-100/70 hover:bg-zinc-100 focus:bg-white border border-transparent focus:border-violet-300 rounded-2xl outline-none transition-all duration-200 placeholder:text-zinc-400 shadow-sm focus:shadow-[0_0_0_4px_rgba(139,92,246,0.08)]"
           />
-        </svg>
-      </button>
-    )}
 
-  </div>
-
-</div>
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18 18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-zinc-500">
           Messages
         </span>
-
-        <div className="text-xs text-zinc-400">
-          {filteredUsers.length}
-        </div>
+        <div className="text-xs text-zinc-400">{filteredUsers.length}</div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-3">
-
         {filteredUsers.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-6">
             <div className="w-16 h-16 rounded-3xl bg-zinc-100 flex items-center justify-center mb-4">
@@ -176,21 +225,27 @@ export default function Sidebar({ onSelectUser }: any) {
             {filteredUsers.map((user) => {
               const isOnline = onlineMap[user.id];
               const isActive = activeUserId === user.id;
+              const unreadCount = unreadMap[user.id] || 0;
 
               return (
                 <button
                   key={user.id}
                   onClick={() => {
-                    setActiveUserId(user.id);
-                    onSelectUser(user);
-                  }}
-                  className={`w-full group relative flex items-center gap-3 px-3 py-3 rounded-2xl border transition-all duration-200 ${
+  setActiveUserId(user.id);
+
+  setUnreadMap((prev: any) => ({
+    ...prev,
+    [user.id]: 0,
+  }));
+
+  onSelectUser(user);
+}}
+                 className={`w-full cursor-pointer group relative flex items-center gap-3 px-3 py-3 rounded-2xl border transition-all duration-200 hover:bg-zinc-50 hover:scale-[1.01] ${
                     isActive
                       ? "bg-violet-50 border-violet-200 shadow-sm"
                       : "bg-white border-transparent hover:bg-zinc-50"
                   }`}
                 >
-
                   <div className="relative shrink-0">
                     <div
                       className={`w-11 h-11 rounded-2xl bg-linear-to-br ${getAvatarColor(
@@ -220,25 +275,27 @@ export default function Sidebar({ onSelectUser }: any) {
 
                     <p
                       className={`text-xs mt-0.5 ${
-                        isOnline
-                          ? "text-emerald-500"
-                          : "text-zinc-500"
+                        isOnline ? "text-emerald-500" : "text-zinc-500"
                       }`}
                     >
                       {isOnline ? "Active now" : "Offline"}
                     </p>
                   </div>
 
+                  {unreadCount > 0 && (
+                    <div className="min-w-4.5 h-5 px-1 flex items-center justify-center text-[11px] font-semibold text-white bg-violet-500 rounded-full">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </div>
+                  )}
+
                   {isActive && (
                     <div className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
                   )}
-
                 </button>
               );
             })}
           </div>
         )}
-
       </div>
     </div>
   );

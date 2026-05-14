@@ -53,22 +53,35 @@ export default function ChatWindow({ selectedUser }: any) {
         )
         .maybeSingle();
 
-      if (existing) {
-        setConversationId(existing.id);
-        setLoading(false);
-        return;
+      let id = existing?.id;
+
+      if (!existing) {
+        const { data: created } = await supabase
+          .from("conversations")
+          .insert({
+            user1_id: user.id,
+            user2_id: selectedUser.id,
+          })
+          .select("id")
+          .single();
+
+        id = created?.id || null;
       }
 
-      const { data: created } = await supabase
-        .from("conversations")
-        .insert({
-          user1_id: user.id,
-          user2_id: selectedUser.id,
-        })
-        .select("id")
-        .single();
+      if (id) {
+        setConversationId(id);
 
-      setConversationId(created?.id || null);
+        await supabase
+          .from("messages")
+          .update({
+            is_read: true,
+            read_at: new Date().toISOString(),
+          })
+          .eq("conversation_id", id)
+          .neq("sender_id", user.id)
+          .eq("is_read", false);
+      }
+
       setLoading(false);
     };
 
@@ -77,7 +90,7 @@ export default function ChatWindow({ selectedUser }: any) {
 
   if (!selectedUser) {
     return (
-      <div className="flex-1 flex items-center justify-center  bg-linear-to-br from-white to-zinc-50 px-6">
+      <div className="flex-1 flex items-center justify-center bg-linear-to-br from-white to-zinc-50 px-6">
         <div className="max-w-sm text-center">
           <div className="relative mx-auto mb-6 w-24 h-24">
             <div className="absolute inset-0 rounded-3xl bg-violet-100 blur-2xl opacity-60" />
@@ -120,7 +133,7 @@ export default function ChatWindow({ selectedUser }: any) {
 
           <div className="relative shrink-0">
             <div
-              className={`w-11 h-11 rounded-2xl  bg-linear-to-br ${getAvatarColor(
+              className={`w-11 h-11 rounded-2xl bg-linear-to-br ${getAvatarColor(
                 selectedUser.id
               )} flex items-center justify-center text-sm font-semibold text-white shadow-sm`}
             >
@@ -134,47 +147,7 @@ export default function ChatWindow({ selectedUser }: any) {
             <h2 className="text-sm md:text-[15px] font-semibold text-zinc-900 truncate">
               {selectedUser.full_name}
             </h2>
-
-            {/* <p className="text-xs text-emerald-500 mt-0.5">
-              Online
-            </p> */}
           </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-
-          <button className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-violet-600 transition">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.8}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M2.25 6.338c0 .232.046.463.137.683l3.243 7.777c.275.659.933 1.088 1.645 1.088.35 0 .695-.09.999-.264l2.21-1.258c.206-.118.461-.118.667 0l2.21 1.258c.304.174.648.264.999.264.712 0 1.37-.43 1.645-1.088l3.243-7.777a1.88 1.88 0 0 0 .137-.683V6.25a2 2 0 0 0-2-2h-15a2 2 0 0 0-2 2v.088Z"
-              />
-            </svg>
-          </button>
-
-          <button className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-500 hover:bg-zinc-100 hover:text-violet-600 transition">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.8}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9A2.25 2.25 0 0 0 4.5 18.75Z"
-              />
-            </svg>
-          </button>
-
         </div>
       </div>
 
