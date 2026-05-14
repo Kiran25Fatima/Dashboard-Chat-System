@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
@@ -24,10 +24,25 @@ const getInitials = (name: string) =>
     .toUpperCase()
     .slice(0, 2) || "?";
 
+// ✅ Helper: deduplicate presence entries by user_id (last entry wins)
+const getLatestPerUser = (all: any[]) =>
+  Object.values(
+    all.reduce((acc: any, p: any) => {
+      acc[p.user_id] = p;
+      return acc;
+    }, {})
+  ) as any[];
+
 export default function ChatWindow({ selectedUser }: any) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+
+  // ✅ Single typing channel instance lives here (lifted up from MessageInput)
+  const typingChannelRef = useRef<any>(null);
+  const channelReadyRef = useRef(false);
+  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const getUser = async () => {
@@ -40,7 +55,7 @@ export default function ChatWindow({ selectedUser }: any) {
 
   useEffect(() => {
     const run = async () => {
-      if (!selectedUser || !user) return;
+      if (!selectedUser?.id || !user?.id) return;
 
       setLoading(true);
       setConversationId(null);
@@ -71,6 +86,8 @@ export default function ChatWindow({ selectedUser }: any) {
       if (id) {
         setConversationId(id);
 
+        if (!user?.id || !selectedUser?.id) return;
+
         await supabase
           .from("messages")
           .update({
@@ -78,10 +95,9 @@ export default function ChatWindow({ selectedUser }: any) {
             read_at: new Date().toISOString(),
           })
           .eq("conversation_id", id)
-          .neq("sender_id", user.id)
+          .eq("receiver_id", user.id)
           .eq("is_read", false);
 
-        // Update status to seen for all messages from other user
         await supabase
           .from("messages")
           .update({
@@ -89,7 +105,7 @@ export default function ChatWindow({ selectedUser }: any) {
             read_at: new Date().toISOString(),
           })
           .eq("conversation_id", id)
-          .neq("sender_id", user.id);
+          .eq("receiver_id", user.id);
       }
 
       setLoading(false);
@@ -97,6 +113,98 @@ export default function ChatWindow({ selectedUser }: any) {
 
     run();
   }, [selectedUser, user]);
+
+  // ✅ Only ONE channel is created here — shared with MessageInput via broadcastTyping prop
+  useEffect(() => {
+    if (!conversationId || !selectedUser || !user) return;
+
+    let channel: any = null;
+
+    const init = async () => {
+      // Hard cleanup first
+      if (typingChannelRef.current) {
+        await supabase.removeChannel(typingChannelRef.current);
+        typingChannelRef.current = null;
+      }
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+      channelReadyRef.current = false;
+
+      channel = supabase.channel(`typing:${conversationId}`);
+      typingChannelRef.current = channel;
+
+      // ✅ sync: deduplicate before checking typing
+      channel.on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        const all = Object.values(state).flat() as any[];
+        const latest = getLatestPerUser(all);
+        setIsTyping(
+          latest.some((p) => p.user_id !== user.id && p.typing === true)
+        );
+      });
+
+      // ✅ join: deduplicate before checking typing
+      channel.on("presence", { event: "join" }, () => {
+        const state = channel.presenceState();
+        const all = Object.values(state).flat() as any[];
+        const latest = getLatestPerUser(all);
+        setIsTyping(
+          latest.some((p) => p.user_id !== user.id && p.typing === true)
+        );
+      });
+
+      // ✅ leave: deduplicate before checking typing
+      channel.on("presence", { event: "leave" }, () => {
+        const state = channel.presenceState();
+        const all = Object.values(state).flat() as any[];
+        const latest = getLatestPerUser(all);
+        setIsTyping(
+          latest.some((p) => p.user_id !== user.id && p.typing === true)
+        );
+      });
+
+      channel.subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          channelReadyRef.current = true;
+        }
+      });
+
+      // ✅ interval: deduplicate before checking typing
+      typingIntervalRef.current = setInterval(() => {
+        const state = channel.presenceState();
+        const all = Object.values(state).flat() as any[];
+        const latest = getLatestPerUser(all);
+        setIsTyping(
+          latest.some((p) => p.user_id !== user.id && p.typing === true)
+        );
+      }, 500);
+    };
+
+    init();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+      typingChannelRef.current = null;
+      channelReadyRef.current = false;
+    };
+  }, [conversationId, selectedUser, user]);
+
+  // ✅ This function is passed down to MessageInput so it uses the same channel
+  const broadcastTyping = (typing: boolean) => {
+    if (!typingChannelRef.current || !user) return;
+    typingChannelRef.current.track({
+      user_id: user.id,
+      typing,
+    });
+  };
 
   if (!selectedUser) {
     return (
@@ -157,6 +265,9 @@ export default function ChatWindow({ selectedUser }: any) {
             <h2 className="text-sm md:text-[15px] font-semibold text-zinc-900 truncate">
               {selectedUser.full_name}
             </h2>
+            {isTyping && (
+              <p className="text-xs text-zinc-500 animate-pulse">Typing...</p>
+            )}
           </div>
         </div>
       </div>
@@ -182,8 +293,9 @@ export default function ChatWindow({ selectedUser }: any) {
           <MessageInput
             conversationId={conversationId}
             senderId={user.id}
-             receiverId={selectedUser.id} 
+            receiverId={selectedUser.id}
             onMessageSent={() => {}}
+            onTyping={broadcastTyping}
           />
         </div>
       )}
