@@ -9,6 +9,7 @@ export default function MessageInput({
   senderId,
   receiverId,
   onMessageSent,
+  onTyping, // ✅ Received from ChatWindow — calls track() on the shared channel
 }: any) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,8 +17,30 @@ export default function MessageInput({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef(false);
+
+  // ✅ Removed: own channel setup (typingChannelRef, useEffect for channel subscribe)
+  //    Those lived here before and caused the duplicate-channel bug.
 
   const closeEmoji = () => setShowEmoji(false);
+
+  // ✅ Now delegates to the shared channel in ChatWindow via onTyping prop
+  const broadcastTyping = () => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    if (!isTypingRef.current) {
+      onTyping?.(true);
+      isTypingRef.current = true;
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      onTyping?.(false);
+      isTypingRef.current = false;
+    }, 1500);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -31,6 +54,15 @@ export default function MessageInput({
       document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ✅ Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleSend = async () => {
     if (!message.trim() || !conversationId || loading) return;
 
@@ -42,7 +74,7 @@ export default function MessageInput({
       receiver_id: receiverId,
       message: message.trim(),
       status: "sent",
-      is_read: false
+      is_read: false,
     });
 
     setLoading(false);
@@ -50,6 +82,13 @@ export default function MessageInput({
     if (!error) {
       setMessage("");
       onMessageSent?.();
+
+      // ✅ Stop typing indicator via shared channel
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      onTyping?.(false);
+      isTypingRef.current = false;
 
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
@@ -68,9 +107,9 @@ export default function MessageInput({
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value);
     closeEmoji();
+    broadcastTyping(); // ✅ Uses shared channel via onTyping prop
 
     const el = textareaRef.current;
-
     if (el) {
       el.style.height = "auto";
       el.style.height = Math.min(el.scrollHeight, 140) + "px";
