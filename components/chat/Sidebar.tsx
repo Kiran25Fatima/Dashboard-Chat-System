@@ -45,8 +45,8 @@ export default function Sidebar({ onSelectUser }: any) {
 
    const { data: messages } = await supabase
   .from("messages")
-  .select("sender_id, receiver_id, is_read")
-  .eq("receiver_id", userId)
+  .select("sender_id")
+  .eq("receiver_id", currentUserId)
   .eq("is_read", false);
 
 const unread: any = {};
@@ -64,12 +64,39 @@ useEffect(() => {
 
   const channel = supabase.channel("online-users");
 
- const messageChannel = supabase
+const messageChannel = supabase
   .channel("realtime-messages")
+
   .on(
     "postgres_changes",
     {
-      event: "*",
+      event: "INSERT",
+      schema: "public",
+      table: "messages",
+    },
+    async (payload) => {
+      const msg: any = payload.new;
+
+      if (!currentUserId) return;
+
+      if (msg.receiver_id === currentUserId) {
+        setUnreadMap((prev: any) => ({
+          ...prev,
+          [msg.sender_id]: (prev[msg.sender_id] || 0) + 1,
+        }));
+
+        await supabase.from("messages").update({
+          status: "delivered",
+          delivered_at: new Date().toISOString(),
+        }).eq("id", msg.id);
+      }
+    }
+  )
+
+  .on(
+    "postgres_changes",
+    {
+      event: "UPDATE",
       schema: "public",
       table: "messages",
     },
@@ -78,22 +105,7 @@ useEffect(() => {
 
       if (!currentUserId) return;
 
-      // NEW MESSAGE
-      if (
-        payload.eventType === "INSERT" &&
-        msg.receiver_id === currentUserId
-      ) {
-        setUnreadMap((prev: any) => ({
-          ...prev,
-          [msg.sender_id]: (prev[msg.sender_id] || 0) + 1,
-        }));
-      }
-
-      // READ UPDATE
-      if (
-        payload.eventType === "UPDATE" &&
-        msg.is_read === true
-      ) {
+      if (msg.is_read === true && msg.receiver_id === currentUserId) {
         setUnreadMap((prev: any) => ({
           ...prev,
           [msg.sender_id]: Math.max((prev[msg.sender_id] || 1) - 1, 0),
@@ -101,6 +113,7 @@ useEffect(() => {
       }
     }
   )
+
   .subscribe();
 
   channel
