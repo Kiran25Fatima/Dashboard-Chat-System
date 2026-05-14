@@ -118,7 +118,7 @@ export default function SignupForm() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1 group">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">First name</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">First name <span className="text-red-500">*</span></label>
                   <div className={inputContainer}>
                     <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -128,13 +128,13 @@ export default function SignupForm() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Last name</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Last name <span className="text-red-500">*</span></label>
                   <input className="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-900 placeholder-gray-400 outline-none transition-all duration-300 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 hover:border-gray-300 shadow-sm" onChange={(e) => setLastName(e.target.value)} placeholder="Doe" />
                 </div>
               </div>
 
               <div className="space-y-1 group">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email address</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email address <span className="text-red-500">*</span></label>
                 <div className={inputContainer}>
                   <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -144,7 +144,7 @@ export default function SignupForm() {
               </div>
 
               <div className="space-y-1 group">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password <span className="text-red-500">*</span></label>
                 <div className={inputContainer}>
                   <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -171,7 +171,7 @@ export default function SignupForm() {
               </div>
 
               <div className="space-y-1 group">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Confirm Password</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Confirm Password  <span className="text-red-500">*</span></label>
                 <div className={inputContainer}>
                   <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
