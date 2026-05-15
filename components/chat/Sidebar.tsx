@@ -31,6 +31,7 @@ export default function Sidebar({ onSelectUser }: any) {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [unreadMap, setUnreadMap] = useState<any>({});
+  
 
   const loadUsers = async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -152,16 +153,37 @@ const filteredUsers = users.filter((u) =>
   u.full_name?.toLowerCase().includes(search.toLowerCase())
 );
 
-  return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="p-4 pb-3 bg-white sticky top-0 z-10">
+ return (
+    <div
+      className="h-full flex flex-col"
+      style={{
+        background: "linear-gradient(180deg, #fdfcff 0%, #f8f5ff 100%)",
+        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+      }}
+    >
+      
+      <div
+        className="px-4 pt-5 pb-4 sticky top-0 z-10"
+        style={{
+          background: "linear-gradient(180deg, rgba(253,252,255,0.99) 80%, transparent 100%)",
+        }}
+      >
+     
+        <p
+          className="text-[10px] font-bold tracking-[0.18em] uppercase mb-3"
+          style={{ color: "#b8acd6" }}
+        >
+          Find People
+        </p>
+
         <div className="relative group">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
             <svg
-              className="w-4 h-4 text-zinc-400 group-focus-within:text-violet-500 transition"
+              className="w-3.5 h-3.5 transition-colors duration-150"
+              style={{ color: "#b8acd6" }}
               fill="none"
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={2.2}
               viewBox="0 0 24 24"
             >
               <circle cx="11" cy="11" r="8" />
@@ -172,46 +194,72 @@ const filteredUsers = users.filter((u) =>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search chats"
-            className="w-full h-12 pl-11 pr-11 text-sm bg-zinc-100/70 hover:bg-zinc-100 focus:bg-white border border-transparent focus:border-violet-300 rounded-2xl outline-none transition-all duration-200 placeholder:text-zinc-400 shadow-sm focus:shadow-[0_0_0_4px_rgba(139,92,246,0.08)]"
+            placeholder="Search"
+            className="w-full h-11 pl-10 pr-10 text-sm outline-none transition-all duration-200 placeholder:font-normal"
+            style={{
+              background: "rgba(255,255,255,0.85)",
+              border: "1px solid rgba(139,92,246,0.12)",
+              borderRadius: "14px",
+              color: "#2e1065",
+              fontFamily: "inherit",
+              boxShadow: "0 2px 8px rgba(109,40,217,0.05)",
+            }}
+            onFocus={e => {
+              (e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.40)";
+              (e.target as HTMLInputElement).style.boxShadow = "0 0 0 4px rgba(139,92,246,0.08), 0 2px 8px rgba(109,40,217,0.06)";
+              (e.target as HTMLInputElement).style.background = "#ffffff";
+            }}
+            onBlur={e => {
+              (e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.12)";
+              (e.target as HTMLInputElement).style.boxShadow = "0 2px 8px rgba(109,40,217,0.05)";
+              (e.target as HTMLInputElement).style.background = "rgba(255,255,255,0.85)";
+            }}
           />
 
           {search && (
             <button
               onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-150"
+              style={{ background: "rgba(139,92,246,0.10)", color: "#7c3aed" }}
             >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18 18 6M6 6l12 12"
-                />
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
               </svg>
             </button>
           )}
         </div>
       </div>
-
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-zinc-500">
-          Messages
+      <div className="px-5 pb-2 flex items-center justify-between">
+        <span
+          className="text-[10px] font-bold tracking-[0.18em] uppercase"
+          style={{ color: "#b8acd6" }}
+        >
+          Chats
         </span>
-        <div className="text-xs text-zinc-400">{filteredUsers.length}</div>
+        <span
+          className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+          style={{
+            background: "linear-gradient(90deg, rgba(139,92,246,0.10), rgba(167,139,250,0.14))",
+            color: "#7c3aed",
+            border: "1px solid rgba(139,92,246,0.15)",
+          }}
+        >
+          {filteredUsers.length}
+        </span>
       </div>
-
-      <div className="flex-1 overflow-y-auto px-2 pb-3">
+      <div className="flex-1 overflow-y-auto px-3 pb-4">
         {filteredUsers.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center px-6">
-            <div className="w-16 h-16 rounded-3xl bg-zinc-100 flex items-center justify-center mb-4">
+          <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
+            <div
+              className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4"
+              style={{
+                background: "linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(167,139,250,0.12) 100%)",
+                border: "1px solid rgba(139,92,246,0.12)",
+              }}
+            >
               <svg
-                className="w-7 h-7 text-zinc-400"
+                className="w-7 h-7"
+                style={{ color: "#c4b5fd" }}
                 fill="none"
                 stroke="currentColor"
                 strokeWidth={1.7}
@@ -224,13 +272,9 @@ const filteredUsers = users.filter((u) =>
                 />
               </svg>
             </div>
-
-            <h3 className="text-sm font-semibold text-zinc-800">
-              No users found
-            </h3>
-
-            <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-              Try searching with another name
+            <h3 className="text-sm font-bold" style={{ color: "#2e1065" }}>No users found</h3>
+            <p className="text-xs mt-1.5 leading-relaxed" style={{ color: "#b8acd6" }}>
+              Try searching with a different name
             </p>
           </div>
         ) : (
@@ -244,65 +288,88 @@ const filteredUsers = users.filter((u) =>
                 <button
                   key={user.id}
                   onClick={() => {
-  setActiveUserId(user.id);
-
-  setUnreadMap((prev: any) => ({
-    ...prev,
-    [user.id]: 0,
-  }));
-
-  onSelectUser(user);
-}}
-                 className={`w-full cursor-pointer group relative flex items-center gap-3 px-3 py-3 rounded-2xl border transition-all duration-200 hover:bg-zinc-50 hover:scale-[1.01] ${
-                    isActive
-                      ? "bg-violet-50 border-violet-200 shadow-sm"
-                      : "bg-white border-transparent hover:bg-zinc-50"
-                  }`}
+                    setActiveUserId(user.id);
+                    setUnreadMap((prev: any) => ({ ...prev, [user.id]: 0 }));
+                    onSelectUser(user);
+                  }}
+                  className="w-full cursor-pointer group relative flex items-center gap-3 px-3 py-3 transition-all duration-200"
+                  style={{
+                    borderRadius: "16px",
+                    background: isActive
+                      ? "linear-gradient(135deg, rgba(124,58,237,0.08) 0%, rgba(167,139,250,0.10) 100%)"
+                      : "transparent",
+                    border: isActive
+                      ? "1px solid rgba(139,92,246,0.18)"
+                      : "1px solid transparent",
+                    boxShadow: isActive ? "0 4px 16px rgba(109,40,217,0.08)" : "none",
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,92,246,0.04)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(139,92,246,0.08)";
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
+                    }
+                  }}
                 >
+                  {/* Avatar */}
                   <div className="relative shrink-0">
                     <div
-                      className={`w-11 h-11 rounded-2xl bg-linear-to-br ${getAvatarColor(
-                        user.id
-                      )} flex items-center justify-center text-sm font-semibold text-white shadow-sm`}
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold text-white`}
+                      style={{
+                        background: `linear-gradient(135deg, #7c3aed, #a78bfa)`,
+                        boxShadow: isActive
+                          ? "0 4px 12px rgba(124,58,237,0.30)"
+                          : "0 2px 8px rgba(124,58,237,0.15)",
+                      }}
                     >
                       {getInitials(user.full_name)}
                     </div>
-
                     <span
-                      className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${
-                        isOnline ? "bg-emerald-400" : "bg-zinc-300"
-                      }`}
+                      className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white"
+                      style={{ background: isOnline ? "#34d399" : "#d1d5db" }}
                     />
                   </div>
 
+  
                   <div className="flex-1 min-w-0 text-left">
                     <h3
-                      className={`text-sm truncate ${
-                        isActive
-                          ? "text-violet-700 font-semibold"
-                          : "text-zinc-900 font-medium"
-                      }`}
+                      className="text-sm truncate"
+                      style={{
+                        color: isActive ? "#5b21b6" : "#1e0a3c",
+                        fontWeight: isActive ? 700 : 600,
+                        letterSpacing: "-0.01em",
+                      }}
                     >
                       {user.full_name}
                     </h3>
-
                     <p
-                      className={`text-xs mt-0.5 ${
-                        isOnline ? "text-emerald-500" : "text-zinc-500"
-                      }`}
+                      className="text-xs mt-0.5 font-medium"
+                      style={{ color: isOnline ? "#10b981" : "#b8acd6" }}
                     >
-                      {isOnline ? "Active now" : "Offline"}
+                      {isOnline ? "● Active now" : "○ Offline"}
                     </p>
                   </div>
-
                   {unreadCount > 0 && (
-                    <div className="min-w-4.5 h-5 px-1 flex items-center justify-center text-[11px] font-semibold text-white bg-violet-500 rounded-full">
+                    <div
+                      className="min-w-5 h-5 px-1.5 flex items-center justify-center text-[11px] font-bold text-white rounded-full"
+                      style={{
+                        background: "linear-gradient(135deg, #7c3aed, #a78bfa)",
+                        boxShadow: "0 2px 8px rgba(124,58,237,0.35)",
+                      }}
+                    >
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </div>
                   )}
-
                   {isActive && (
-                    <div className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
+                    <div
+                      className="w-1.5 h-6 rounded-full shrink-0"
+                      style={{ background: "linear-gradient(180deg, #7c3aed, #a78bfa)" }}
+                    />
                   )}
                 </button>
               );
