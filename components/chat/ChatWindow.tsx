@@ -121,7 +121,7 @@ export default function ChatWindow({ selectedUser }: any) {
     let channel: any = null;
 
     const init = async () => {
-      // Hard cleanup first
+     
       if (typingChannelRef.current) {
         await supabase.removeChannel(typingChannelRef.current);
         typingChannelRef.current = null;
@@ -205,20 +205,41 @@ export default function ChatWindow({ selectedUser }: any) {
       typing,
     });
   };
+  
 
+  
   if (!selectedUser) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-linear-to-br from-white to-zinc-50 px-6">
-        <div className="max-w-sm text-center">
-          <div className="relative mx-auto mb-6 w-24 h-24">
-            <div className="absolute inset-0 rounded-3xl bg-violet-100 blur-2xl opacity-60" />
-
-            <div className="relative w-24 h-24 rounded-3xl bg-white border border-zinc-200 shadow-sm flex items-center justify-center">
+      <div
+        className="flex-1 flex items-center justify-center px-6"
+        style={{
+          background: "linear-gradient(160deg, #fdfcff 0%, #f5f0ff 50%, #faf8ff 100%)",
+        }}
+      >
+        <div className="max-w-xs text-center">
+          
+          <div className="relative mx-auto mb-8 w-24 h-24">
+            <div
+              className="absolute inset-0 rounded-3xl opacity-40"
+              style={{
+                background: "radial-gradient(circle, #a78bfa 0%, transparent 70%)",
+                filter: "blur(20px)",
+                transform: "scale(1.4)",
+              }}
+            />
+            <div
+              className="relative w-24 h-24 rounded-3xl flex items-center justify-center"
+              style={{
+                background: "linear-gradient(145deg, #ffffff 0%, #f5f0ff 100%)",
+                boxShadow: "0 0 0 1px rgba(139,92,246,0.12), 0 8px 32px rgba(109,40,217,0.10)",
+              }}
+            >
               <svg
-                className="w-10 h-10 text-violet-500"
+                className="w-10 h-10"
+                style={{ color: "#8b5cf6" }}
                 fill="none"
                 stroke="currentColor"
-                strokeWidth={1.7}
+                strokeWidth={1.6}
                 viewBox="0 0 24 24"
               >
                 <path
@@ -230,66 +251,140 @@ export default function ChatWindow({ selectedUser }: any) {
             </div>
           </div>
 
-          <h2 className="text-xl font-semibold text-zinc-900">
-            Your messages
+          <h2
+            className="text-xl font-bold tracking-tight"
+            style={{ color: "#2e1065", fontFamily: "'DM Sans', sans-serif" }}
+          >
+            Your Messages
           </h2>
-
-          <p className="text-sm text-zinc-500 mt-2 leading-relaxed">
-            Select a conversation from the sidebar and start chatting instantly.
+          <p className="text-sm mt-2.5 leading-relaxed" style={{ color: "#9585b8" }}>
+            Select a conversation from the sidebar to start chatting.
           </p>
+
+      
+          <div className="flex items-center justify-center gap-2 mt-8">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full"
+                style={{
+                  background: i === 1 ? "#8b5cf6" : "#ddd6fe",
+                  transform: i === 1 ? "scale(1.3)" : "scale(1)",
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-zinc-50">
+    <div
+      className="flex-1 flex flex-col min-h-0"
+      style={{ background: "#ffffff" }}
+    >
 
-      <div className="shrink-0 px-4 md:px-5 py-3 border-b border-zinc-200 bg-white flex items-center justify-between">
-
-        <div className="flex items-center gap-3 min-w-0">
-
+      <div
+        className="shrink-0 px-5 py-3.5 flex items-center justify-between"
+        style={{
+          background: "linear-gradient(90deg, rgba(255,255,255,0.98) 0%, rgba(250,247,255,0.98) 100%)",
+          borderBottom: "1px solid rgba(139,92,246,0.09)",
+          boxShadow: "0 2px 16px rgba(109,40,217,0.05)",
+        }}
+      >
+        <div className="flex items-center gap-3.5 min-w-0">
+          {/* Avatar */}
           <div className="relative shrink-0">
             <div
-              className={`w-11 h-11 rounded-2xl bg-linear-to-br ${getAvatarColor(
-                selectedUser.id
-              )} flex items-center justify-center text-sm font-semibold text-white shadow-sm`}
+              className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-bold text-white`}
+              style={{
+                background: `linear-gradient(135deg, var(--avatar-from, #7c3aed), var(--avatar-to, #a78bfa))`,
+                boxShadow: "0 4px 12px rgba(124,58,237,0.25)",
+              }}
             >
               {getInitials(selectedUser.full_name)}
             </div>
-
-            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />
+            <span
+              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white bg-emerald-400"
+            />
           </div>
 
+       
           <div className="min-w-0">
-            <h2 className="text-sm md:text-[15px] font-semibold text-zinc-900 truncate">
+            <h2
+              className="text-sm font-bold truncate"
+              style={{ color: "#2e1065", letterSpacing: "-0.01em" }}
+            >
               {selectedUser.full_name}
             </h2>
             {isTyping && (
-              <p className="text-xs text-zinc-500 animate-pulse">Typing...</p>
-            )}
+  <p className="text-xs font-medium animate-pulse" style={{ color: "#8b5cf6" }}>
+    Typing…
+  </p>
+)}
+          </div>
+        </div>
+
+      
+        <div className="flex items-center gap-2">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center"
+            style={{
+              background: "rgba(139,92,246,0.06)",
+              border: "1px solid rgba(139,92,246,0.10)",
+            }}
+          >
+            <svg className="w-4 h-4" style={{ color: "#8b5cf6" }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+            </svg>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.06),transparent_35%)]">
+  
+      <div
+  className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-24"
+  style={{
+    background: "linear-gradient(180deg, #fdfcff 0%, #f9f7ff 60%, #ffffff 100%)",
+  }}
+>
         {conversationId ? (
           <MessageList conversationId={conversationId} />
         ) : (
           <div className="h-full flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
-              <div className="w-10 h-10 rounded-full border-2 border-zinc-300 border-t-violet-500 animate-spin" />
-
-              <p className="text-sm text-zinc-500">
-                {loading ? "Preparing conversation..." : "Ready"}
+              <div
+                className="w-9 h-9 rounded-full border-2 border-t-transparent animate-spin"
+                style={{ borderColor: "rgba(139,92,246,0.2)", borderTopColor: "#7c3aed" }}
+              />
+              <p className="text-xs font-medium" style={{ color: "#a89fc4" }}>
+                {loading ? "Preparing conversation…" : "Ready"}
               </p>
             </div>
           </div>
         )}
       </div>
 
+     
       {user && (
-        <div className="shrink-0 bg-white border-t border-zinc-200 px-2 md:px-3 py-2">
+        <div
+  className="shrink-0 px-3 md:px-4 py-3"
+  style={{
+    background: "rgba(255,255,255,0.85)",
+    backdropFilter: "blur(12px)",
+    borderTop: "1px solid rgba(139,92,246,0.10)",
+    boxShadow: "0 -10px 30px rgba(109,40,217,0.06)",
+  }}
+>
+  <div
+  className="h-px w-full"
+  style={{
+    background:
+      "linear-gradient(90deg, transparent, rgba(139,92,246,0.15), transparent)",
+  }}
+/>
           <MessageInput
             conversationId={conversationId}
             senderId={user.id}
@@ -301,4 +396,5 @@ export default function ChatWindow({ selectedUser }: any) {
       )}
     </div>
   );
+
 }
