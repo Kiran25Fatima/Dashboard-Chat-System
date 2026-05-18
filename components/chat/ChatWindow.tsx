@@ -6,24 +6,8 @@ import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import ChatWindowSkeleton from "../skeletons/ChatWindowSkeleton";
 
-const avatarColors = [
-  "from-violet-500 to-purple-600",
-  "from-sky-500 to-blue-600",
-  "from-emerald-500 to-teal-600",
-  "from-rose-500 to-pink-600",
-  "from-amber-500 to-orange-600",
-];
-
-const getAvatarColor = (id: string) =>
-  avatarColors[id?.charCodeAt(0) % avatarColors.length || 0];
-
-const getInitials = (name: string) =>
-  name
-    ?.split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "?";
+import Avatar from "../ui/Avatar";
+import useCurrentUser from "../../hooks/useCurrentUser";
 
 // ✅ Helper: deduplicate presence entries by user_id (last entry wins)
 const getLatestPerUser = (all: any[]) =>
@@ -45,14 +29,11 @@ export default function ChatWindow({ selectedConversation }: any) {
   const channelReadyRef = useRef(false);
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const { user: currentUser } = useCurrentUser();
+  // keep local `user` state in sync with hook
   useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
-    };
-
-    getUser();
-  }, []);
+    setUser(currentUser);
+  }, [currentUser]);
 
   useEffect(() => {
     if (!selectedConversation?.id || !user?.id) {
@@ -267,18 +248,7 @@ export default function ChatWindow({ selectedConversation }: any) {
         <div className="flex items-center gap-3.5 min-w-0">
           {/* Avatar */}
           <div className="relative shrink-0">
-            <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-bold text-white`}
-              style={{
-                background: `linear-gradient(135deg, var(--avatar-from, #7c3aed), var(--avatar-to, #a78bfa))`,
-                boxShadow: "0 4px 12px rgba(124,58,237,0.25)",
-              }}
-            >
-              {getInitials(selectedConversation?.partner?.full_name)}
-            </div>
-            {/* <span
-              className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white bg-emerald-400"
-            /> */}
+            <Avatar name={selectedConversation?.partner?.full_name} size={40} />
           </div>
 
        

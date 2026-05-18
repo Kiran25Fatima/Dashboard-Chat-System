@@ -6,13 +6,11 @@ import { supabase } from "@/lib/supabaseClient";
 import Skeleton from "@/components/ui/Skeleton";
 import { MessageCircle } from "lucide-react";
 
-const getInitials = (name: string) =>
-  name
-    ?.split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "?";
+import UserListItem from "@/components/features/UserListItem";
+import SearchInput from "../ui/SearchInput";
+import useCurrentUser from "../../hooks/useCurrentUser";
+import useLockBodyScroll from "@/hooks/useLockBodyScroll";
+
 
 export default function NewChatModal({
   onClose,
@@ -26,30 +24,26 @@ export default function NewChatModal({
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
+  useLockBodyScroll();
 
   useEffect(() => {
     searchInputRef.current?.focus();
   }, []);
 
+  const { user } = useCurrentUser();
+
   useEffect(() => {
     const loadUsers = async () => {
       setIsLoading(true);
 
-      const { data } = await supabase.auth.getUser();
-      const userId = data.user?.id ?? null;
+      const userId = user?.id ?? null;
       setCurrentUserId(userId);
 
       if (!userId) {
-        setUsers([]);
-        setIsLoading(false);
-        return;
-      }
+  setUsers([]);
+  setIsLoading(true);
+  return;
+}
 
       const { data: profiles } = await supabase
         .from("profiles")
@@ -61,7 +55,7 @@ export default function NewChatModal({
     };
 
     loadUsers();
-  }, []);
+  }, [user]);
 
   const filteredUsers = users.filter((user) =>
     user.full_name?.toLowerCase().includes(search.toLowerCase())
@@ -178,68 +172,55 @@ className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backd
 
    
         <div className="px-5 pt-4">
-          <input
-            ref={searchInputRef}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search people..."
-            className="w-full h-10 sm:h-11 px-3 sm:px-4 text-sm rounded-xl outline-none
-                       border border-violet-100 shadow-sm
-                       focus:border-violet-300 focus:ring-2 focus:ring-violet-100
-                       transition"
-          />
+         <SearchInput
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  placeholder="Search people..."
+  wrapperStyle={{ width: "100%" }}
+  inputClassName="w-full h-10 outline-none transition-all duration-200 placeholder:text-violet-300"
+ inputStyle={{
+  background: "rgba(248,245,255,0.9)",
+  border: "1px solid rgba(139,92,246,0.20)",
+  borderRadius: "12px",
+  color: "#1e0a3c",
+  fontFamily: "inherit",
+  fontSize: "0.875rem",
+  paddingLeft: "2.5rem",  // ← changed from 1rem to 2.5rem
+  paddingRight: "1rem",
+  boxShadow: "0 2px 8px rgba(109,40,217,0.06), inset 0 1px 2px rgba(255,255,255,0.8)",
+}}
+  onClear={() => setSearch("")}
+/>
         </div>
 
 
         <div className="px-4 py-4 flex-1 overflow-y-auto space-y-2">
-          {isLoading ? (
-            <>
-              <UserSkeleton />
-              <UserSkeleton />
-              <UserSkeleton />
-              <UserSkeleton />
-            </>
-          ) : filteredUsers.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-sm font-semibold text-[#1e0a3c]">
-                No users found
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Try another search
-              </p>
-            </div>
-          ) : (
-            filteredUsers.map((user) => (
-              <button
-                key={user.id}
-                disabled={isCreating}
-                onClick={() =>
-                  createOrOpenConversationWithUser(user)
-                }
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-violet-100 bg-white
-                           hover:bg-violet-50 hover:border-violet-200
-                           active:scale-[0.98] transition text-left cursor-pointer "
-              >
-                <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-violet-600 to-violet-300 text-white flex items-center justify-center font-bold text-sm">
-                  {getInitials(user.full_name)}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[#1e0a3c] truncate">
-                    {user.full_name}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Click to start chat
-                  </p>
-                </div>
-
-                <MessageCircle
-                  size={18}
-                  className="text-violet-600 shrink-0"
-                />
-              </button>
-            ))
-          )}
+        {isLoading || !user ? (
+  <>
+    <UserSkeleton />
+    <UserSkeleton />
+    <UserSkeleton />
+    <UserSkeleton />
+  </>
+) : filteredUsers.length === 0 ? (
+  <div className="text-center py-10">
+    <p className="text-sm font-semibold text-[#1e0a3c]">
+      No users found
+    </p>
+    <p className="text-xs text-gray-400 mt-1">
+      Try another search
+    </p>
+  </div>
+) : (
+  filteredUsers.map((user) => (
+    <UserListItem
+      key={user.id}
+      user={user}
+      disabled={isCreating}
+      onClick={() => createOrOpenConversationWithUser(user)}
+    />
+  ))
+)}
         </div>
       </div>
     </div>
