@@ -95,7 +95,7 @@ export default function SignupForm() {
         Secure • Encrypted • Real-time
       </span>
     </div>
-    <h1 className="text-5xl font-black tracking-tight text-white leading-tight">
+    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
       Join a new way of
       <span className="block text-transparent bg-clip-text bg-linear-to-r from-purple-400 to-blue-400">
         communicating
@@ -162,7 +162,7 @@ export default function SignupForm() {
 
         <div className="w-full max-w-md relative z-10">
           <div
-  className="rounded-3xl p-8 md:p-10 backdrop-blur-2xl"
+  className="rounded-3xl p-6 sm:p-8 md:p-10 backdrop-blur-2xl"
   style={{
     background: "rgba(255,255,255,0.75)",
     border: "1px solid rgba(255,255,255,0.7)",
@@ -186,7 +186,7 @@ export default function SignupForm() {
             )}
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1 group">
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">First name <span className="text-red-500">*</span></label>
                   <div className={inputContainer}>
@@ -281,7 +281,7 @@ export default function SignupForm() {
             <button
   onClick={handleSignup}
   disabled={loading}
-  className="w-full mt-8 py-3.5 text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:opacity-50"
+  className="w-full mt-8 py-3.5 text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
   style={{
     borderRadius: "14px",
     background: "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",

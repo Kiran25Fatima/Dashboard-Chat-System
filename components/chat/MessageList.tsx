@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import MessageListSkeleton from "@/components/skeletons/MessageListSkeleton";
 import type { ReactNode } from "react";
 
 function formatTime(ts: string) {
@@ -41,6 +42,7 @@ function isSameDay(a: string, b: string) {
 export default function MessageList({ conversationId }: any) {
   const [messages, setMessages] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -56,8 +58,35 @@ export default function MessageList({ conversationId }: any) {
     getUser();
   }, []);
 
+  const markMessagesRead = async (messageId?: string) => {
+    if (!conversationId || !currentUserId) return;
+
+    const updateQuery = supabase
+      .from("messages")
+      .update({
+        is_read: true,
+        status: "seen",
+        read_at: new Date().toISOString(),
+      })
+      .eq("conversation_id", conversationId)
+      .eq("receiver_id", currentUserId)
+      .eq("is_read", false);
+
+    if (messageId) {
+      updateQuery.eq("id", messageId);
+    }
+
+    await updateQuery;
+  };
+
   const fetchMessages = async () => {
-    if (!conversationId) return;
+    setIsLoading(true);
+
+    if (!conversationId) {
+      setMessages([]);
+      setIsLoading(false);
+      return;
+    }
 
     const { data } = await supabase
       .from("messages")
@@ -66,6 +95,7 @@ export default function MessageList({ conversationId }: any) {
       .order("created_at", { ascending: true });
 
     setMessages(data || []);
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -73,7 +103,7 @@ export default function MessageList({ conversationId }: any) {
   }, [conversationId]);
 
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !currentUserId) return;
 
     const channel = supabase
       .channel(`messages-${conversationId}`)
@@ -85,8 +115,18 @@ export default function MessageList({ conversationId }: any) {
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => {
+        async (payload) => {
           const msg = payload.new;
+
+          if (msg.receiver_id === currentUserId) {
+            setMessages((prev) => [
+              ...prev,
+              { ...msg, is_read: true, status: "seen" },
+            ]);
+            await markMessagesRead(msg.id);
+            return;
+          }
+
           setMessages((prev) => [...prev, msg]);
         }
       )
@@ -107,14 +147,18 @@ export default function MessageList({ conversationId }: any) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, currentUserId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
     });
-  }, [messages]);
+  }, [messages.length]);
 
+
+  if (isLoading) {
+    return <MessageListSkeleton />;
+  }
 
   if (messages.length === 0) {
     return (
