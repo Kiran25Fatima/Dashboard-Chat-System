@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
+import ChatWindowSkeleton from "../skeletons/ChatWindowSkeleton";
 
 const avatarColors = [
   "from-violet-500 to-purple-600",
@@ -33,7 +34,7 @@ const getLatestPerUser = (all: any[]) =>
     }, {})
   ) as any[];
 
-export default function ChatWindow({ selectedUser }: any) {
+export default function ChatWindow({ selectedConversation }: any) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -54,69 +55,35 @@ export default function ChatWindow({ selectedUser }: any) {
   }, []);
 
   useEffect(() => {
-    const run = async () => {
-      if (!selectedUser?.id || !user?.id) return;
-
-      setLoading(true);
+    if (!selectedConversation?.id || !user?.id) {
       setConversationId(null);
-
-      const { data: existing } = await supabase
-        .from("conversations")
-        .select("id")
-        .or(
-          `and(user1_id.eq.${user.id},user2_id.eq.${selectedUser.id}),and(user1_id.eq.${selectedUser.id},user2_id.eq.${user.id})`
-        )
-        .maybeSingle();
-
-      let id = existing?.id;
-
-      if (!existing) {
-        const { data: created } = await supabase
-          .from("conversations")
-          .insert({
-            user1_id: user.id,
-            user2_id: selectedUser.id,
-          })
-          .select("id")
-          .single();
-
-        id = created?.id || null;
-      }
-
-      if (id) {
-        setConversationId(id);
-
-        if (!user?.id || !selectedUser?.id) return;
-
-        await supabase
-          .from("messages")
-          .update({
-            is_read: true,
-            read_at: new Date().toISOString(),
-          })
-          .eq("conversation_id", id)
-          .eq("receiver_id", user.id)
-          .eq("is_read", false);
-
-        await supabase
-          .from("messages")
-          .update({
-            status: "seen",
-            read_at: new Date().toISOString(),
-          })
-          .eq("conversation_id", id)
-          .eq("receiver_id", user.id);
-      }
-
       setLoading(false);
+      return;
+    }
+
+    const conversationId = selectedConversation.id;
+    setConversationId(conversationId);
+    setLoading(true);
+
+    const markMessagesRead = async () => {
+      await supabase
+        .from("messages")
+        .update({
+          is_read: true,
+          status: "seen",
+          read_at: new Date().toISOString(),
+        })
+        .eq("conversation_id", conversationId)
+        .eq("receiver_id", user.id)
+        .eq("is_read", false);
     };
 
-    run();
-  }, [selectedUser, user]);
+    markMessagesRead().finally(() => setLoading(false));
+  }, [selectedConversation, user]);
 
   // ✅ Only ONE channel is created here — shared with MessageInput via broadcastTyping prop
   useEffect(() => {
-    if (!conversationId || !selectedUser || !user) return;
+    if (!conversationId || !selectedConversation?.partner || !user) return;
 
     let channel: any = null;
 
@@ -195,7 +162,7 @@ export default function ChatWindow({ selectedUser }: any) {
       typingChannelRef.current = null;
       channelReadyRef.current = false;
     };
-  }, [conversationId, selectedUser, user]);
+  }, [conversationId, selectedConversation, user]);
 
   // ✅ This function is passed down to MessageInput so it uses the same channel
   const broadcastTyping = (typing: boolean) => {
@@ -205,10 +172,10 @@ export default function ChatWindow({ selectedUser }: any) {
       typing,
     });
   };
-  
 
-  
-  if (!selectedUser) {
+  const isPreparing = !!selectedConversation && (!user || loading || conversationId === null);
+
+  if (!selectedConversation) {
     return (
       <div
         className="flex-1 flex items-center justify-center px-6"
@@ -279,6 +246,9 @@ export default function ChatWindow({ selectedUser }: any) {
     );
   }
 
+  if (isPreparing) {
+    return <ChatWindowSkeleton />;
+  }
 
   return (
     <div
@@ -304,11 +274,11 @@ export default function ChatWindow({ selectedUser }: any) {
                 boxShadow: "0 4px 12px rgba(124,58,237,0.25)",
               }}
             >
-              {getInitials(selectedUser.full_name)}
+              {getInitials(selectedConversation?.partner?.full_name)}
             </div>
-            <span
+            {/* <span
               className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white bg-emerald-400"
-            />
+            /> */}
           </div>
 
        
@@ -317,7 +287,7 @@ export default function ChatWindow({ selectedUser }: any) {
               className="text-sm font-bold truncate"
               style={{ color: "#2e1065", letterSpacing: "-0.01em" }}
             >
-              {selectedUser.full_name}
+              {selectedConversation?.partner?.full_name}
             </h2>
             {isTyping && (
   <p className="text-xs font-medium animate-pulse" style={{ color: "#8b5cf6" }}>
@@ -329,7 +299,7 @@ export default function ChatWindow({ selectedUser }: any) {
 
       
         <div className="flex items-center gap-2">
-          <div
+          {/* <div
             className="w-8 h-8 rounded-xl flex items-center justify-center"
             style={{
               background: "rgba(139,92,246,0.06)",
@@ -339,7 +309,7 @@ export default function ChatWindow({ selectedUser }: any) {
             <svg className="w-4 h-4" style={{ color: "#8b5cf6" }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
             </svg>
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -350,21 +320,7 @@ export default function ChatWindow({ selectedUser }: any) {
     background: "linear-gradient(180deg, #fdfcff 0%, #f9f7ff 60%, #ffffff 100%)",
   }}
 >
-        {conversationId ? (
-          <MessageList conversationId={conversationId} />
-        ) : (
-          <div className="h-full flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-              <div
-                className="w-9 h-9 rounded-full border-2 border-t-transparent animate-spin"
-                style={{ borderColor: "rgba(139,92,246,0.2)", borderTopColor: "#7c3aed" }}
-              />
-              <p className="text-xs font-medium" style={{ color: "#a89fc4" }}>
-                {loading ? "Preparing conversation…" : "Ready"}
-              </p>
-            </div>
-          </div>
-        )}
+        <MessageList conversationId={conversationId!} />
       </div>
 
      
@@ -388,7 +344,7 @@ export default function ChatWindow({ selectedUser }: any) {
           <MessageInput
             conversationId={conversationId}
             senderId={user.id}
-            receiverId={selectedUser.id}
+            receiverId={selectedConversation?.partner?.id}
             onMessageSent={() => {}}
             onTyping={broadcastTyping}
           />

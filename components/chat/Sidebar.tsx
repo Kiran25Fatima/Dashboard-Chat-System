@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import SidebarSkeleton from "@/components/skeletons/SidebarSkeleton";
 
 const avatarColors = [
   "from-violet-500 to-purple-600",
@@ -23,160 +24,293 @@ const getInitials = (name: string) =>
     .toUpperCase()
     .slice(0, 2) || "?";
 
-export default function Sidebar({ onSelectUser }: any) {
-  const [users, setUsers] = useState<any[]>([]);
+export default function Sidebar({ onSelectConversation, selectedConversationId, onOpenNewChat, newConversation }: any) {
+  const [conversations, setConversations] = useState<any[]>([]);
   const [onlineMap, setOnlineMap] = useState<any>({});
   const [search, setSearch] = useState("");
-  const [activeUserId, setActiveUserId] = useState<string | null>(null);
-
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [unreadMap, setUnreadMap] = useState<any>({});
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "unread" | "online">("all");
 
-  const loadUsers = async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
+  const loadConversations = async () => {
+  setIsLoading(true);
 
-    setCurrentUserId(userId ?? null);
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id ?? null;
+  setCurrentUserId(userId);
 
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .neq("id", userId);
+  if (!userId) {
+    setConversations([]);
+    setUnreadMap({});
+    setIsLoading(false);
+    return;
+  }
 
-   const { data: messages } = await supabase
-  .from("messages")
-  .select("sender_id")
-  .eq("receiver_id", currentUserId)
-  .eq("is_read", false);
+  const { data: conversationsData } = await supabase
+    .from("conversations")
+    .select("id,user1_id,user2_id,last_message,updated_at")
+    .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+    .order("updated_at", { ascending: false });
 
-const unread: any = {};
+  const conversationIds = (conversationsData || []).map((c: any) => c.id);
 
-messages?.forEach((m) => {
-  unread[m.sender_id] = (unread[m.sender_id] || 0) + 1;
-});
+  const { data: lastMessages } = await supabase
+    .from("messages")
+    .select("conversation_id, message, created_at")
+    .in("conversation_id", conversationIds.length > 0 ? conversationIds : [""])
+    .order("created_at", { ascending: false });
 
-    setUnreadMap(unread);
-    setUsers(profiles || []);
-  };
-
-useEffect(() => {
-  loadUsers();
-
-  const channel = supabase.channel("online-users");
-
-const messageChannel = supabase
-  .channel("realtime-messages")
-
-  .on(
-    "postgres_changes",
-    {
-      event: "INSERT",
-      schema: "public",
-      table: "messages",
-    },
-    async (payload) => {
-      const msg: any = payload.new;
-
-      if (!currentUserId) return;
-
-      if (msg.receiver_id === currentUserId) {
-        setUnreadMap((prev: any) => ({
-          ...prev,
-          [msg.sender_id]: (prev[msg.sender_id] || 0) + 1,
-        }));
-
-        await supabase.from("messages").update({
-          status: "delivered",
-          delivered_at: new Date().toISOString(),
-        }).eq("id", msg.id);
-      }
+  const lastMessageMap: any = {};
+  (lastMessages || []).forEach((msg: any) => {
+    if (!lastMessageMap[msg.conversation_id]) {
+      lastMessageMap[msg.conversation_id] = msg.message;
     }
-  )
+  });
 
-  .on(
-    "postgres_changes",
-    {
-      event: "UPDATE",
-      schema: "public",
-      table: "messages",
-    },
-    (payload) => {
-      const msg: any = payload.new;
+  const partnerIds = (conversationsData || [])
+    .map((conv: any) => (conv.user1_id === userId ? conv.user2_id : conv.user1_id))
+    .filter(Boolean);
 
-      if (!currentUserId) return;
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", partnerIds.length > 0 ? partnerIds : [""]);
 
-      if (msg.is_read === true && msg.receiver_id === currentUserId) {
-        setUnreadMap((prev: any) => ({
-          ...prev,
-          [msg.sender_id]: Math.max((prev[msg.sender_id] || 1) - 1, 0),
-        }));
-      }
+  const profileMap = Object.fromEntries(
+    (profileData || []).map((profile: any) => [profile.id, profile])
+  );
+
+  const formattedConversations = (conversationsData || []).map((conversation: any) => {
+    const partnerId = conversation.user1_id === userId ? conversation.user2_id : conversation.user1_id;
+    return {
+      ...conversation,
+      last_message: lastMessageMap[conversation.id] || conversation.last_message,
+      partner: profileMap[partnerId] || { id: partnerId, full_name: "Unknown" },
+    };
+  });
+
+  const { data: unreadMessages } = await supabase
+    .from("messages")
+    .select("conversation_id")
+    .eq("receiver_id", userId)
+    .eq("is_read", false);
+
+  const unreadCountByConversation: any = {};
+  (unreadMessages || []).forEach((message: any) => {
+    unreadCountByConversation[message.conversation_id] =
+      (unreadCountByConversation[message.conversation_id] || 0) + 1;
+  });
+
+  setConversations(formattedConversations);
+  setUnreadMap(unreadCountByConversation);
+  setIsLoading(false);
+};
+
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  useEffect(() => {
+    if (selectedConversationId) {
+      setActiveConversationId(selectedConversationId);
+      setUnreadMap((prev: any) => ({ ...prev, [selectedConversationId]: 0 }));
     }
-  )
+  }, [selectedConversationId]);
 
-  .subscribe();
+  useEffect(() => {
+    if (!newConversation) return;
 
-  channel
-    .on("presence", { event: "sync" }, () => {
-      const state = channel.presenceState();
-      const onlineUsers: any = {};
+    setConversations((prev: any[]) => {
+      const exists = prev.some((item) => item.id === newConversation.id);
+      const updated = exists
+        ? prev.map((item) => (item.id === newConversation.id ? newConversation : item))
+        : [newConversation, ...prev];
 
-      Object.keys(state).forEach((key) => {
-        state[key].forEach((p: any) => {
-          onlineUsers[p.user_id] = true;
+      return updated.sort(
+        (a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
+      );
+    });
+  }, [newConversation]);
+
+  useEffect(() => {
+    const presenceChannel = supabase.channel("online-users");
+    const messageChannel = supabase
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        async (payload) => {
+          const msg: any = payload.new;
+
+          if (!currentUserId) return;
+
+          if (msg.sender_id === currentUserId || msg.receiver_id === currentUserId) {
+  // Only increment unread for receiver
+  if (msg.receiver_id === currentUserId && msg.conversation_id !== activeConversationId) {
+    setUnreadMap((prev: any) => ({
+      ...prev,
+      [msg.conversation_id]: (prev[msg.conversation_id] || 0) + 1,
+    }));
+  }
+
+  setConversations((prev: any[]) => {
+    const updated = prev.map((conversation) =>
+      conversation.id === msg.conversation_id
+        ? {
+            ...conversation,
+            last_message: msg.message,
+            updated_at: msg.created_at,
+          }
+        : conversation
+    );
+
+    return updated.sort(
+      (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+  });
+}
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          const msg: any = payload.new;
+
+          if (!currentUserId || msg.receiver_id !== currentUserId) return;
+
+          if (msg.is_read === true) {
+            setUnreadMap((prev: any) => ({
+              ...prev,
+              [msg.conversation_id]:
+                msg.conversation_id === activeConversationId
+                  ? 0
+                  : Math.max((prev[msg.conversation_id] || 1) - 1, 0),
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        const state = presenceChannel.presenceState();
+        const onlineUsers: any = {};
+
+        Object.keys(state).forEach((key) => {
+          state[key].forEach((p: any) => {
+            onlineUsers[p.user_id] = true;
+          });
         });
+
+        setOnlineMap(onlineUsers);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          const { data } = await supabase.auth.getUser();
+
+          if (data.user) {
+            await presenceChannel.track({
+              user_id: data.user.id,
+              online_at: new Date().toISOString(),
+            });
+          }
+        }
       });
 
-      setOnlineMap(onlineUsers);
-    })
-    .subscribe(async (status) => {
-      if (status === "SUBSCRIBED") {
-        const { data } = await supabase.auth.getUser();
+    return () => {
+      supabase.removeChannel(presenceChannel);
+      supabase.removeChannel(messageChannel);
+    };
+  }, [currentUserId, activeConversationId]);
 
-        if (data.user) {
-          await channel.track({
-            user_id: data.user.id,
-            online_at: new Date().toISOString(),
-          });
-        }
-      }
-    });
-
-  return () => {
-    supabase.removeChannel(channel);
-    supabase.removeChannel(messageChannel);
+  const openConversation = (conversation: any) => {
+    setActiveConversationId(conversation.id);
+    setUnreadMap((prev: any) => ({ ...prev, [conversation.id]: 0 }));
+    onSelectConversation(conversation);
   };
-}, [currentUserId]);
 
-const filteredUsers = users.filter((u) =>
-  u.full_name?.toLowerCase().includes(search.toLowerCase())
+  const baseFiltered = conversations.filter((conversation) =>
+  conversation.partner.full_name?.toLowerCase().includes(search.toLowerCase())
 );
 
- return (
-    <div
-      className="h-full flex flex-col"
+const filteredConversations = baseFiltered.filter((conversation) => {
+  const unread = unreadMap[conversation.id] || 0;
+  const isOnline = !!onlineMap[conversation.partner.id];
+
+  if (filter === "unread") return unread > 0;
+  if (filter === "online") return isOnline;
+  return true;
+});
+  const showEmptyState = !isLoading && filteredConversations.length === 0;
+
+  return (
+    <div className="h-full flex flex-col select-none border-r backdrop-blur-xl px-3  bg-[#fbfaff]"
       style={{
-        background: "linear-gradient(180deg, #fdfcff 0%, #f8f5ff 100%)",
-        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-      }}
+  background:
+    "linear-gradient(180deg, #fcfbff 0%, #f7f4ff 100%)",
+  borderColor: "rgba(139,92,246,0.08)",
+  fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+}}
     >
-      
-      <div
-        className="px-4 pt-5 pb-4 sticky top-0 z-10"
+      <div className="sticky top-0 z-20 pt-4 pb-3 space-y-3"
         style={{
           background: "linear-gradient(180deg, rgba(253,252,255,0.99) 80%, transparent 100%)",
         }}
       >
-     
-        <p
-          className="text-[10px] font-bold tracking-[0.18em] uppercase mb-3"
-          style={{ color: "#b8acd6" }}
-        >
-          Find People
-        </p>
+        <div className="flex items-center justify-between ml-2 mb-2">
+          <p className="text-[10px] font-bold tracking-[0.16em] uppercase leading-none"
+            style={{ color: "#7c3aed" }}
+          >
+            Conversations
+          </p>
+        <button
+  type="button"
+  onClick={onOpenNewChat}
+  className="group relative flex items-center gap-2 text-[11px] font-semibold px-3 py-2 rounded-xl cursor-pointer
+             transition-all duration-200
+             hover:-translate-y-px
+             hover:shadow-lg hover:shadow-violet-200"
+  style={{
+    background:
+      "linear-gradient(135deg, rgba(124,58,237,0.08), rgba(167,139,250,0.12))",
+    color: "#5b21b6",
+    border: "1px solid rgba(139,92,246,0.18)",
+  }}
+>
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    viewBox="0 0 24 24"
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+  </svg>
 
-        <div className="relative group">
+  <span>New Chat</span>
+
+  <span
+    className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+    style={{
+      background:
+        "radial-gradient(circle at center, rgba(167,139,250,0.25), transparent 70%)",
+    }}
+  />
+</button>
+        </div>
+
+        <div className="relative mt-2">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
             <svg
               className="w-3.5 h-3.5 transition-colors duration-150"
@@ -195,21 +329,23 @@ const filteredUsers = users.filter((u) =>
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search"
-            className="w-full h-11 pl-10 pr-10 text-sm outline-none transition-all duration-200 placeholder:font-normal"
+            className="w-full h-11 pl-10 pr-9 text-sm outline-none transition-all duration-200 placeholder:font-normal"
             style={{
               background: "rgba(255,255,255,0.85)",
               border: "1px solid rgba(139,92,246,0.12)",
-              borderRadius: "14px",
+              borderRadius: "18px",
               color: "#2e1065",
               fontFamily: "inherit",
-              boxShadow: "0 2px 8px rgba(109,40,217,0.05)",
+              boxShadow:
+  "0 4px 14px rgba(109,40,217,0.06)",
             }}
-            onFocus={e => {
+            onFocus={(e) => {
               (e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.40)";
-              (e.target as HTMLInputElement).style.boxShadow = "0 0 0 4px rgba(139,92,246,0.08), 0 2px 8px rgba(109,40,217,0.06)";
+              (e.target as HTMLInputElement).style.boxShadow =
+                "0 0 0 4px rgba(139,92,246,0.08), 0 2px 8px rgba(109,40,217,0.06)";
               (e.target as HTMLInputElement).style.background = "#ffffff";
             }}
-            onBlur={e => {
+            onBlur={(e) => {
               (e.target as HTMLInputElement).style.borderColor = "rgba(139,92,246,0.12)";
               (e.target as HTMLInputElement).style.boxShadow = "0 2px 8px rgba(109,40,217,0.05)";
               (e.target as HTMLInputElement).style.background = "rgba(255,255,255,0.85)";
@@ -229,26 +365,184 @@ const filteredUsers = users.filter((u) =>
           )}
         </div>
       </div>
-      <div className="px-5 pb-2 flex items-center justify-between">
-        <span
-          className="text-[10px] font-bold tracking-[0.18em] uppercase"
-          style={{ color: "#b8acd6" }}
-        >
-          Chats
-        </span>
-        <span
-          className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-          style={{
-            background: "linear-gradient(90deg, rgba(139,92,246,0.10), rgba(167,139,250,0.14))",
-            color: "#7c3aed",
-            border: "1px solid rgba(139,92,246,0.15)",
-          }}
-        >
-          {filteredUsers.length}
-        </span>
-      </div>
-      <div className="flex-1 overflow-y-auto px-3 pb-4">
-        {filteredUsers.length === 0 ? (
+
+{/* Filters */}
+<div className="px-0.5 pb-3 space-y-4">
+
+  {/* Filter Bar */}
+  <div
+    className="relative flex items-center gap-1.5 p-1.5 rounded-2xl overflow-hidden"
+    style={{
+      background: "rgba(255,255,255,0.72)",
+      backdropFilter: "blur(18px)",
+      border: "1px solid rgba(139,92,246,0.10)",
+      boxShadow:
+        "0 6px 20px rgba(109,40,217,0.05)",
+    }}
+  >
+    {(
+      [
+        {
+          key: "all",
+          label: "All",
+          icon: (
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16M4 12h16M4 18h10"
+              />
+            </svg>
+          ),
+        },
+        {
+          key: "unread",
+          label: "Unread",
+          icon: (
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 8h10M7 12h6m-8 8 14-14"
+              />
+            </svg>
+          ),
+        },
+        {
+          key: "online",
+          label: "Online",
+          icon: (
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+          ),
+        },
+      ] as const
+    ).map((item) => {
+      const active = filter === item.key;
+
+      return (
+   <button
+  key={item.key}
+  onClick={() => setFilter(item.key)}
+  className="relative flex-1 h-11 rounded-xl flex items-center justify-center gap-2
+             text-[12px] font-semibold  cursor-pointer transition-all duration-300 ease-out"
+  style={{
+    background: active
+      ? "linear-gradient(135deg, rgba(124,58,237,0.10) 0%, rgba(167,139,250,0.16) 100%)"
+      : "rgba(255,255,255,0.45)",
+
+    color: active ? "#5b21b6" : "#6b5a99",
+
+    border: active
+      ? "1px solid rgba(139,92,246,0.16)"
+      : "1px solid rgba(139,92,246,0.06)",
+
+    boxShadow: active
+      ? "0 4px 14px rgba(124,58,237,0.10)"
+      : "0 1px 2px rgba(15,23,42,0.03)",
+
+    backdropFilter: "blur(10px)",
+  }}
+  onMouseEnter={(e) => {
+    if (!active) {
+      e.currentTarget.style.background =
+        "linear-gradient(135deg, rgba(124,58,237,0.05), rgba(167,139,250,0.10))";
+
+      e.currentTarget.style.borderColor =
+        "rgba(139,92,246,0.12)";
+
+      e.currentTarget.style.transform =
+        "translateY(-1px)";
+    }
+  }}
+  onMouseLeave={(e) => {
+    if (!active) {
+      e.currentTarget.style.background =
+        "rgba(255,255,255,0.45)";
+
+      e.currentTarget.style.borderColor =
+        "rgba(139,92,246,0.06)";
+
+      e.currentTarget.style.transform =
+        "translateY(0px)";
+    }
+  }}
+>
+          <span
+            className="flex items-center justify-center"
+            style={{
+              opacity: active ? 1 : 0.82,
+            }}
+          >
+            {item.icon}
+          </span>
+
+          <span>{item.label}</span>
+
+          {active && (
+            <span
+              className="absolute inset-0 rounded-xl"
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.12), transparent)",
+              }}
+            />
+          )}
+        </button>
+      );
+    })}
+  </div>
+
+  {/* Section Header */}
+  <div className="flex items-center justify-between px-1">
+    <div>
+      <p
+        className="text-[11px] font-bold uppercase tracking-[0.16em]"
+        style={{ color: "#7c3aed" }}
+      >
+        Chats
+      </p>
+
+      {/* <p
+        className="text-[11px] mt-1"
+        style={{ color: "#a1a1aa" }}
+      >
+        Conversations and activity
+      </p> */}
+    </div>
+
+    {/* <div
+      className="min-w-8 h-8 px-2 rounded-xl flex items-center justify-center
+                 text-[11px] font-bold"
+      style={{
+        background:
+          "linear-gradient(135deg, rgba(124,58,237,0.10), rgba(167,139,250,0.16))",
+        color: "#6d28d9",
+        border: "1px solid rgba(139,92,246,0.10)",
+        boxShadow:
+          "0 4px 12px rgba(124,58,237,0.08)",
+      }}
+    >
+      {filteredConversations.length}
+    </div> */}
+  </div>
+</div>
+
+      <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin scrollbar-thumb-violet-200">
+        {isLoading ? (
+          <SidebarSkeleton />
+        ) : showEmptyState ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
             <div
               className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4"
@@ -272,27 +566,28 @@ const filteredUsers = users.filter((u) =>
                 />
               </svg>
             </div>
-            <h3 className="text-sm font-bold" style={{ color: "#2e1065" }}>No users found</h3>
-            <p className="text-xs mt-1.5 leading-relaxed" style={{ color: "#b8acd6" }}>
-              Try searching with a different name
-            </p>
+            <h3 className="text-sm font-bold" style={{ color: "#2e1065" }}>
+  {conversations.length === 0 ? "No conversations yet" : "No results found"}
+</h3>
+
+<p className="text-xs mt-1.5 leading-relaxed" style={{ color: "#b8acd6" }}>
+  {conversations.length === 0
+    ? "Start messaging from the New Chat button"
+    : "Try searching with a different name."}
+</p>
           </div>
         ) : (
-          <div className="space-y-1">
-            {filteredUsers.map((user) => {
-              const isOnline = onlineMap[user.id];
-              const isActive = activeUserId === user.id;
-              const unreadCount = unreadMap[user.id] || 0;
+     <div className="space-y-1 px-0.5">
+            {filteredConversations.map((conversation) => {
+              const isOnline = onlineMap[conversation.partner.id];
+              const isActive = activeConversationId === conversation.id;
+              const unreadCount = unreadMap[conversation.id] || 0;
 
               return (
                 <button
-                  key={user.id}
-                  onClick={() => {
-                    setActiveUserId(user.id);
-                    setUnreadMap((prev: any) => ({ ...prev, [user.id]: 0 }));
-                    onSelectUser(user);
-                  }}
-                  className="w-full cursor-pointer group relative flex items-center gap-3 px-3 py-3 transition-all duration-200"
+                  key={conversation.id}
+                  onClick={() => openConversation(conversation)}
+                  className="w-full cursor-pointer group relative flex items-center gap-3 px-2.5 py-2.5 transition-all duration-200"
                   style={{
                     borderRadius: "16px",
                     background: isActive
@@ -303,23 +598,26 @@ const filteredUsers = users.filter((u) =>
                       : "1px solid transparent",
                     boxShadow: isActive ? "0 4px 16px rgba(109,40,217,0.08)" : "none",
                   }}
-                  onMouseEnter={e => {
+                  onMouseEnter={(e) => {
                     if (!isActive) {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,92,246,0.04)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,92,246,0.06)";
                       (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(139,92,246,0.08)";
+                      (e.currentTarget as HTMLButtonElement).style.transform =
+  "translateY(-1px)";
                     }
                   }}
-                  onMouseLeave={e => {
+                  onMouseLeave={(e) => {
                     if (!isActive) {
                       (e.currentTarget as HTMLButtonElement).style.background = "transparent";
                       (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
+                      (e.currentTarget as HTMLButtonElement).style.transform =
+  "translateY(0px)";
                     }
                   }}
                 >
-                  {/* Avatar */}
                   <div className="relative shrink-0">
                     <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold text-white`}
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-bold text-white`}
                       style={{
                         background: `linear-gradient(135deg, #7c3aed, #a78bfa)`,
                         boxShadow: isActive
@@ -327,7 +625,7 @@ const filteredUsers = users.filter((u) =>
                           : "0 2px 8px rgba(124,58,237,0.15)",
                       }}
                     >
-                      {getInitials(user.full_name)}
+                      {getInitials(conversation.partner.full_name)}
                     </div>
                     <span
                       className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white"
@@ -335,7 +633,6 @@ const filteredUsers = users.filter((u) =>
                     />
                   </div>
 
-  
                   <div className="flex-1 min-w-0 text-left">
                     <h3
                       className="text-sm truncate"
@@ -345,26 +642,39 @@ const filteredUsers = users.filter((u) =>
                         letterSpacing: "-0.01em",
                       }}
                     >
-                      {user.full_name}
+                      {conversation.partner.full_name}
                     </h3>
-                    <p
-                      className="text-xs mt-0.5 font-medium"
-                      style={{ color: isOnline ? "#10b981" : "#b8acd6" }}
-                    >
-                      {isOnline ? "● Active now" : "○ Offline"}
-                    </p>
+         <p
+  className="text-[12.5px] mt-0.5 truncate leading-relaxed"
+  style={{
+    color: unreadCount > 0 ? "#374151" : "#9ca3af",
+    fontWeight: unreadCount > 0 ? 500 : 400,
+  }}
+>
+  {conversation.last_message || "Start a conversation"}
+</p>
                   </div>
-                  {unreadCount > 0 && (
-                    <div
-                      className="min-w-5 h-5 px-1.5 flex items-center justify-center text-[11px] font-bold text-white rounded-full"
-                      style={{
-                        background: "linear-gradient(135deg, #7c3aed, #a78bfa)",
-                        boxShadow: "0 2px 8px rgba(124,58,237,0.35)",
-                      }}
-                    >
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </div>
-                  )}
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-[10.5px] font-semibold" style={{ color: "#b8acd6" }}>
+                      {conversation.updated_at
+                        ? new Date(conversation.updated_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "--:--"}
+                    </span>
+                    {unreadCount > 0 && (
+                      <div
+                        className="min-w-5 h-5 px-1.5 flex items-center justify-center text-[11px] font-bold text-white rounded-full"
+                        style={{
+                          background: "linear-gradient(135deg, #7c3aed, #a78bfa)",
+                          boxShadow: "0 2px 8px rgba(124,58,237,0.35)",
+                        }}
+                      >
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </div>
+                    )}
+                  </div>
                   {isActive && (
                     <div
                       className="w-1.5 h-6 rounded-full shrink-0"
@@ -380,3 +690,4 @@ const filteredUsers = users.filter((u) =>
     </div>
   );
 }
+

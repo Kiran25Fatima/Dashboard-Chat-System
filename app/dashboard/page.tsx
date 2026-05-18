@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Sidebar from "@/components/chat/Sidebar";
 import ChatWindow from "@/components/chat/ChatWindow";
+import NewChatModal from "@/components/chat/NewChatModal";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [newConversation, setNewConversation] = useState<any>(null);
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -80,7 +83,7 @@ export default function DashboardPage() {
               >
                 Conversa
               </span>
-              <span
+              {/* <span
                 className="hidden md:block text-xs font-medium px-2 py-0.5 rounded-full"
                 style={{
                   background: "linear-gradient(90deg, rgba(139,92,246,0.10), rgba(167,139,250,0.12))",
@@ -89,7 +92,7 @@ export default function DashboardPage() {
                 }}
               >
                 Messages
-              </span>
+              </span> */}
             </div>
           </div>
 
@@ -152,27 +155,16 @@ export default function DashboardPage() {
   </div>
 </button>
 
-            <button
+        <button
   onClick={logout}
-  className="group flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200"
+  className="group flex items-center gap-2.5 px-3 py-1.5 rounded-xl cursor-pointer transition-all duration-200
+             hover:-translate-y-px
+             hover:shadow-lg hover:shadow-violet-200
+             hover:border-violet-300"
   style={{
-    background: "linear-gradient(135deg, rgba(124,58,237,0.06), rgba(167,139,250,0.08))",
+    background:
+      "linear-gradient(135deg, rgba(124,58,237,0.06), rgba(167,139,250,0.08))",
     border: "1px solid rgba(139,92,246,0.15)",
-    boxShadow: "0 2px 10px rgba(124,58,237,0.08)",
-  }}
-  onMouseEnter={(e) => {
-    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-      "0 6px 18px rgba(124,58,237,0.18)";
-    (e.currentTarget as HTMLButtonElement).style.borderColor =
-      "rgba(139,92,246,0.25)";
-  }}
-  onMouseLeave={(e) => {
-    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0px)";
-    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-      "0 2px 10px rgba(124,58,237,0.08)";
-    (e.currentTarget as HTMLButtonElement).style.borderColor =
-      "rgba(139,92,246,0.15)";
   }}
 >
   <svg
@@ -189,8 +181,8 @@ export default function DashboardPage() {
     />
   </svg>
 
-  <span className="text-xs font-semibold text-[#6d28d9] group-hover:text-[#5b21b6] transition-colors">
-    Sign out
+  <span className="text-xs font-bold text-[#6d28d9] group-hover:text-[#5b21b6] transition-colors">
+    Logout
   </span>
 </button>
           </div>
@@ -202,8 +194,8 @@ export default function DashboardPage() {
       <aside
   className={`
     fixed md:static z-50 inset-y-0 left-0
-    md:h-full md:w-70 md:shrink-0
-    w-70 h-full flex flex-col overflow-hidden
+   md:h-full md:w-95 md:shrink-0
+w-95 h-full flex flex-col overflow-hidden
     transform transition-transform duration-200
     ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
   `}
@@ -214,8 +206,11 @@ export default function DashboardPage() {
   }}
 >
             <Sidebar
-              onSelectUser={(user: any) => {
-                setSelectedUser(user);
+              selectedConversationId={selectedConversation?.id}
+              onOpenNewChat={() => setIsNewChatOpen(true)}
+              newConversation={newConversation}
+              onSelectConversation={(conversation: any) => {
+                setSelectedConversation(conversation);
                 setSidebarOpen(false);
               }}
             />
@@ -223,11 +218,21 @@ export default function DashboardPage() {
           <div className="flex-1 min-w-0 flex flex-col bg-white relative" style={{
   boxShadow: "-6px 0 30px rgba(109,40,217,0.04)"
 }}>
-            <ChatWindow selectedUser={selectedUser}
-             />
+            <ChatWindow selectedConversation={selectedConversation} />
           </div>
         </div>
       </div>
+      {isNewChatOpen && (
+        <NewChatModal
+          onClose={() => setIsNewChatOpen(false)}
+          onConversationCreated={(conversation:any) => {
+            setSelectedConversation(conversation);
+            setSidebarOpen(false);
+            setNewConversation(conversation);
+            setIsNewChatOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

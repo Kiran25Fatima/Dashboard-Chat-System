@@ -62,36 +62,75 @@ export default function MessageInput({
   }, []);
 
   const handleSend = async () => {
-    if (!message.trim() || !conversationId || loading) return;
+    const text = message.trim();
+
+    if (loading) return;
+    if (!text) return;
+    if (!conversationId) {
+      console.error("❌ Cannot send message: missing conversationId");
+      return;
+    }
 
     setLoading(true);
 
-    const { error } = await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      receiver_id: receiverId,
-      message: message.trim(),
-      status: "sent",
-      is_read: false,
-    });
+    const { data: insertedMessage, error: insertError } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversationId,
+        sender_id: senderId,
+        receiver_id: receiverId,
+        message: text,
+        status: "sent",
+        is_read: false,
+      })
+      .select("id, conversation_id, created_at")
+.single();
+
+    if (insertError) {
+      console.error("❌ Failed to insert message:", insertError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!insertedMessage || insertedMessage.conversation_id !== conversationId) {
+      console.error(
+        "❌ Inserted message did not return expected conversation_id:",
+        insertedMessage
+      );
+    }
+
+  try {
+  const { error: updateError } = await supabase
+    .from("conversations")
+    .update({
+      last_message: text,
+        updated_at: new Date().toISOString(),
+    })
+    .eq("id", conversationId);
+
+  if (updateError) {
+    console.error("❌ Update failed:", updateError.message);
+  } else {
+    console.log("✅ Conversation updated successfully");
+  }
+} catch (updateException) {
+  console.error("❌ Unexpected error updating conversation:", updateException);
+}
+
+    setMessage("");
+    onMessageSent?.();
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    onTyping?.(false);
+    isTypingRef.current = false;
+
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
 
     setLoading(false);
-
-    if (!error) {
-      setMessage("");
-      onMessageSent?.();
-
-    
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      onTyping?.(false);
-      isTypingRef.current = false;
-
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
-    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -153,7 +192,7 @@ export default function MessageInput({
         <div className="flex items-end gap-2 px-2 py-2 md:gap-1.5">
           <button
             onClick={() => setShowEmoji((p) => !p)}
-            className="flex w-10 h-10 sm:w-9 sm:h-9 items-center justify-center rounded-xl transition-all duration-150"
+            className="flex w-10 h-10 sm:w-9 sm:h-9 items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
             style={{
               color: showEmoji ? "#7c3aed" : "#b8acd6",
               background: showEmoji ? "rgba(139,92,246,0.08)" : "transparent",
@@ -195,7 +234,7 @@ export default function MessageInput({
           {/* Attachment + send */}
           <div className="flex items-center gap-1 shrink-0">
             <button
-              className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl transition-all duration-150"
+              className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
               style={{ color: "#b8acd6" }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLButtonElement).style.color = "#7c3aed";
@@ -215,7 +254,7 @@ export default function MessageInput({
             <button
               onClick={handleSend}
               disabled={!canSend}
-              className="w-11 h-11 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all duration-150"
+              className="w-11 h-11 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-150"
               style={
                 canSend
                   ? {
@@ -250,10 +289,7 @@ export default function MessageInput({
               }}
             >
               {loading ? (
-                <div
-                  className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
-                  style={{ borderColor: "rgba(255,255,255,0.4)", borderTopColor: "#ffffff" }}
-                />
+                <div className="w-3 h-3 rounded-full bg-white animate-pulse" />
               ) : (
                 <svg
                   className="w-4 h-4 -rotate-12 translate-x-px"

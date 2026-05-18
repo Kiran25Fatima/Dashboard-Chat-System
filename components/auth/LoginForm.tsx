@@ -82,7 +82,7 @@ export default function LoginForm() {
         "url('https://grainy-gradients.vercel.app/noise.svg')",
     }}
   />
-  <div className="relative z-10 flex flex-col justify-between h-full w-full px-14 py-14">
+  <div className="relative z-10 flex flex-col justify-between h-full w-full px-6 lg:px-14 py-8 lg:py-14">
 
     <div className="flex items-center gap-4">
       <div
@@ -122,7 +122,7 @@ export default function LoginForm() {
         </p>
       </div>
     </div>
-    <div className="max-w-xl">
+    <div className="max-w-xl w-full">
       <div
         className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8"
         style={{
@@ -138,7 +138,7 @@ export default function LoginForm() {
       </div>
 
       <h2
-        className="text-[56px] leading-[1.02] font-black text-white"
+        className="text-4xl sm:text-5xl lg:text-[56px] leading-[1.1] font-black text-white"
         style={{
           letterSpacing: "-0.06em",
         }}
@@ -213,7 +213,7 @@ export default function LoginForm() {
 </div>
 
       <div
-  className="w-full md:w-1/2 flex items-center justify-center px-6 py-12 relative overflow-hidden"
+  className="w-full md:w-1/2 flex items-center justify-center px-4 sm:px-6 py-10 lg:py-12 relative overflow-hidden"
   style={{
     background:
       "linear-gradient(180deg, #faf7ff 0%, #f5f0ff 35%, #f3ecff 100%)",
@@ -221,7 +221,7 @@ export default function LoginForm() {
 >
  
   <div
-    className="absolute -top-32 right-30 w-96 h-96 rounded-full blur-3xl opacity-40"
+    className="absolute -top-32 right-30 w-96 h-96 rounded-full blur-3xl opacity-40 pointer-events-none"
     style={{
       background:
         "radial-gradient(circle, rgba(168,85,247,0.28) 0%, rgba(168,85,247,0) 72%)",
@@ -229,7 +229,7 @@ export default function LoginForm() {
   />
 
   <div
-    className="absolute -bottom-35 -left-25 w-105 h-105 rounded-full blur-3xl opacity-30"
+    className="absolute -bottom-35 -left-25 w-105 h-105 rounded-full blur-3xl opacity-30 pointer-events-none"
     style={{
       background:
         "radial-gradient(circle, rgba(124,58,237,0.25) 0%, rgba(124,58,237,0) 72%)",
@@ -265,7 +265,7 @@ export default function LoginForm() {
           >
       
            <div className="mb-8 text-center ">
-  <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">
+  <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
     Welcome back
   </h2>
 
@@ -375,24 +375,42 @@ export default function LoginForm() {
                     }}
                   />
                   <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 transition-colors duration-150"
-                    style={{ color: "#c4b5fd" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "#7c3aed")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "#c4b5fd")}
-                  >
-                    {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.05-2.35 2.85-4.32 5.125-5.575M6.18 6.18A9.953 9.953 0 0112 5c5 0 9.27 3.11 11 7a10.06 10.06 0 01-4.21 5.06M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3l18 18" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
+  type="button"
+  onClick={() => setShowPassword(!showPassword)}
+  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-purple-600 transition"
+>
+  {showPassword ? (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.05-2.35 2.85-4.32 5.125-5.575M6.18 6.18A9.953 9.953 0 0112 5c5 0 9.27 3.11 11 7a10.06 10.06 0 01-4.21 5.06M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M3 3l18 18"
+      />
+    </svg>
+  ) : (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+      />
+    </svg>
+  )}
+</button>
                 </div>
               </div>
             </div>
@@ -400,7 +418,7 @@ export default function LoginForm() {
         <button
               onClick={handleLogin}
               disabled={loading}
-              className="w-full mt-8 py-3.5 text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:opacity-50"
+              className="w-full mt-8 py-3.5 text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               style={{
                 borderRadius: "14px",
                 background: "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
