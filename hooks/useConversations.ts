@@ -31,9 +31,8 @@ export default function useConversations({ user, loading, selectedConversationId
 
     const { data: conversationsData } = await supabase
       .from("conversations")
-      .select("id,user1_id,user2_id,last_message,updated_at")
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .order("updated_at", { ascending: false });
+.select("id,user1_id,user2_id,last_message,updated_at")
+.or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
 
     const conversationIds = (conversationsData || []).map((c: any) => c.id);
 
@@ -62,23 +61,30 @@ export default function useConversations({ user, loading, selectedConversationId
     const profileMap = Object.fromEntries(
       (profileData || []).map((profile: any) => [profile.id, profile])
     );
+const formattedConversations = (conversationsData || []).map((conversation: any) => {
+  const partnerId =
+    conversation.user1_id === userId ? conversation.user2_id : conversation.user1_id;
 
-    const formattedConversations = (conversationsData || []).map((conversation: any) => {
-      const partnerId =
-        conversation.user1_id === userId ? conversation.user2_id : conversation.user1_id;
+  const profile = profileMap[partnerId];
 
-      const profile = profileMap[partnerId];
+  const lastMsg = lastMessages?.find(
+    (m: any) => m.conversation_id === conversation.id
+  );
 
-      return {
-        ...conversation,
-        last_message: lastMessageMap[conversation.id] || conversation.last_message,
-        partner: {
-          id: partnerId,
-          full_name: profile?.full_name || "Unknown",
-        },
-      };
-    });
+  return {
+    ...conversation,
 
+  
+    updated_at: lastMsg?.created_at || conversation.created_at,
+
+    last_message: lastMsg?.message || conversation.last_message || "",
+
+    partner: {
+      id: partnerId,
+      full_name: profile?.full_name || "Unknown",
+    },
+  };
+});
     const { data: unreadMessages } = await supabase
       .from("messages")
       .select("conversation_id")
@@ -95,7 +101,13 @@ await supabase
   .update({ status: "delivered" })
   .eq("receiver_id", userId)
   .eq("status", "sent");
-    setConversations(formattedConversations);
+    setConversations(
+  formattedConversations.sort(
+    (a: any, b: any) =>
+      new Date(b.updated_at || 0).getTime() -
+      new Date(a.updated_at || 0).getTime()
+  )
+);
     setUnreadMap(unreadCountByConversation);
     setIsLoading(false);
   };
@@ -121,9 +133,7 @@ await supabase
       const updated = exists
         ? prev.map((item) => (item.id === newConversation.id ? newConversation : item))
         : [newConversation, ...prev];
-      return updated.sort(
-        (a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
-      );
+      return updated;
     });
   }, [newConversation]);
 
@@ -148,15 +158,22 @@ await supabase
     .then(() => {});
           }
           setConversations((prev: any[]) => {
-            const updated = prev.map((conversation) =>
-              conversation.id === msg.conversation_id
-                ? { ...conversation, last_message: msg.message, updated_at: msg.created_at }
-                : conversation
-            );
-            return updated.sort(
-              (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-            );
-          });
+  const updated = prev.map((conversation) =>
+    conversation.id === msg.conversation_id
+      ? {
+          ...conversation,
+          last_message: msg.message,
+          updated_at: msg.created_at,
+        }
+      : conversation
+  );
+
+  return [...updated].sort(
+    (a, b) =>
+      new Date(b.updated_at).getTime() -
+      new Date(a.updated_at).getTime()
+  );
+});
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
