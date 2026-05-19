@@ -1,35 +1,41 @@
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function MessageListSkeleton() {
-  const placeholders = [
-    { align: "start", width: "60%" },
-    { align: "end", width: "52%" },
-    { align: "start", width: "70%" },
-    { align: "end", width: "45%" },
+  const bubbles = [
+    { align: "start", width: "45%" },
+    { align: "end", width: "30%" },
+    { align: "end", width: "20%" },
+    { align: "start", width: "55%" },
+    { align: "start", width: "35%" },
+    { align: "end", width: "40%" },
+    { align: "start", width: "25%" },
+    { align: "end", width: "30%" },
   ];
 
   return (
-    <div className="flex flex-col min-h-full gap-4 py-4" style={{ background: "linear-gradient(180deg, #fdfcff 0%, #f9f7ff 65%, #ffffff 100%)" }}>
-      <div className="px-4 flex items-center gap-3">
-        <Skeleton width="26%" height="10px" rounded="999px" />
+    <div className="flex flex-col gap-3 py-4 px-2">
+    
+      <div className="flex items-center gap-3 px-2 mb-2">
+        <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.15), transparent)" }} />
+        <Skeleton width="80px" height="10px" rounded="999px" />
         <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.15), transparent)" }} />
       </div>
-      <div className="space-y-4 px-4">
-        {placeholders.map((item, index) => (
-          <div
-            key={index}
-            className={`flex ${item.align === "end" ? "justify-end" : "justify-start"}`}
-          >
-            <div className="space-y-2 w-full max-w-[85%] md:max-w-[68%]">
-              <Skeleton width={item.width} height="14px" rounded="18px" />
-              <Skeleton width="90%" height="14px" rounded="18px" />
-            </div>
-          </div>
-         ))}
-      </div>
-      <div className="px-4 pt-4">
-        <Skeleton width="100%" height="56px" rounded="28px" />
-      </div>
+
+      {bubbles.map((bubble, index) => (
+        <div
+          key={index}
+          className={`flex ${bubble.align === "end" ? "justify-end" : "justify-start"}`}
+        >
+          {bubble.align === "start" && (
+            <Skeleton width="32px" height="32px" rounded="999px" style={{ marginRight: "8px", flexShrink: 0 }} />
+          )}
+          <Skeleton
+            width={bubble.width}
+            height="36px"
+            rounded={bubble.align === "end" ? "18px 18px 4px 18px" : "18px 18px 18px 4px"}
+          />
+        </div>
+      ))}
     </div>
   );
 }

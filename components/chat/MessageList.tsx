@@ -7,13 +7,33 @@ import type { ReactNode } from "react";
 import { formatTime, formatDateLabel, isSameDay } from "@/lib/utils/format";
 import useCurrentUser from "@/hooks/useCurrentUser";
 
-export default function MessageList({ conversationId }: any) {
+export default function MessageList({
+  conversationId,
+  searchTerm,
+  searchIndex,
+  setSearchIndex,
+  messageRefs,
+  hasMessages,
+}: any) {
   const [messages, setMessages] = useState<any[]>([]);
   const { user } = useCurrentUser();
   const [currentUserId, setCurrentUserId] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(hasMessages ?? true);
+
+
 
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const filteredMessages = searchTerm
+  ? messages.filter((msg) =>
+      msg.message?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  : messages;
+ const matches = searchTerm
+  ? messages.filter((msg) =>
+      msg.message?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  : [];
 
   useEffect(() => {
     if (user) setCurrentUserId(user.id);
@@ -130,6 +150,19 @@ useEffect(() => {
       behavior: "smooth",
     });
   }, [messages.length]);
+  useEffect(() => {
+  if (!searchTerm || matches.length === 0) return;
+
+  const safeIndex = searchIndex % matches.length;
+  const target = matches[safeIndex]?.id;
+
+  if (target && messageRefs.current[target]) {
+    messageRefs.current[target].scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }
+}, [searchIndex, searchTerm, messages]);
 
 
   if (isLoading) {
@@ -210,17 +243,62 @@ useEffect(() => {
   const rendered: ReactNode[] = [];
   let prevSenderId = "";
 
-  messages.forEach((msg, i) => {
+ filteredMessages.forEach((msg, i) => {
+
+  const isMatch =
+  searchTerm &&
+  msg.message?.toLowerCase().includes(searchTerm.toLowerCase());
+
+
+  const isActiveMatch =
+  isMatch &&
+  matches[searchIndex % matches.length]?.id === msg.id;
+
+ const highlightMessage = (text: string) => {
+  if (!searchTerm) return text;
+
+  const regex = new RegExp(`(${searchTerm})`, "gi");
+
+  return text.split(regex).map((part, index) => {
+    const matched =
+      part.toLowerCase() === searchTerm.toLowerCase();
+
+    if (!matched) return part;
+
+    return (
+      <span
+        key={index}
+        style={{
+          background: isMe
+            ? "rgba(255,255,255,0.22)"
+            : "rgba(139,92,246,0.14)",
+
+          color: isMe ? "#fff" : "#5b21b6",
+
+          padding: "1px 3px",
+          borderRadius: "4px",
+
+          fontWeight: 600,
+
+          boxDecorationBreak: "clone",
+          WebkitBoxDecorationBreak: "clone",
+        }}
+      >
+        {part}
+      </span>
+    );
+  });
+};
     const isMe = msg.sender_id === currentUserId;
 
     const showDateDivider =
-      i === 0 || !isSameDay(msg.created_at, messages[i - 1].created_at);
+      i === 0 || !isSameDay(msg.created_at, filteredMessages[i - 1].created_at);
 
     const isGrouped = msg.sender_id === prevSenderId && !showDateDivider;
 
     const isLast =
-      i === messages.length - 1 ||
-      messages[i + 1].sender_id !== msg.sender_id;
+      i === filteredMessages.length - 1 ||
+      filteredMessages[i + 1].sender_id !== msg.sender_id;
 
    
     if (showDateDivider) {
@@ -247,38 +325,67 @@ useEffect(() => {
 
     
     rendered.push(
-      <div
-        key={msg.id}
-        className={`flex ${isGrouped ? "mt-0.5" : "mt-3"} ${isMe ? "justify-end" : "justify-start"}`}
-      >
+     <div
+  key={msg.id}
+  ref={(el) => {
+    messageRefs.current[msg.id] = el;
+  }}
+  className={`flex ${isGrouped ? "mt-0.5" : "mt-3"} ${isMe ? "justify-end" : "justify-start"}`}
+>
         <div
           className={`flex flex-col max-w-[78%] md:max-w-[60%] ${isMe ? "items-end" : "items-start"}`}
         >
          
           <div
             className="relative px-4 py-2.5 text-[14.5px] leading-relaxed wrap-break-words"
-            style={
-              isMe
-                ? {
-                    background: "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
-                    color: "#ffffff",
-                    borderRadius: isLast
-                      ? "20px 20px 6px 20px"
-                      : "20px",
-                    boxShadow: "0 4px 16px rgba(124,58,237,0.28), 0 1px 4px rgba(124,58,237,0.15)",
-                  }
-                : {
-                    background: "rgba(255,255,255,0.95)",
-                    color: "#1e0a3c",
-                    border: "1px solid rgba(139,92,246,0.12)",
-                    borderRadius: isLast
-                      ? "20px 20px 20px 6px"
-                      : "20px",
-                    boxShadow: "0 2px 12px rgba(109,40,217,0.07), 0 1px 3px rgba(109,40,217,0.04)",
-                  }
-            }
+           style={
+  isMe
+    ? {
+       background: isActiveMatch
+  ? "linear-gradient(135deg, #8b5cf6 0%, #9333ea 100%)"
+  : "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
+
+        color: "#ffffff",
+
+        borderRadius: isLast
+          ? "20px 20px 6px 20px"
+          : "20px",
+
+        transform: isActiveMatch ? "scale(1.02)" : "scale(1)",
+
+       transition: "background 0.18s ease, box-shadow 0.18s ease",
+
+    boxShadow: isActiveMatch
+  ? "0 6px 18px rgba(124,58,237,0.22)"
+  : "0 2px 10px rgba(124,58,237,0.16)",
+      }
+    : {
+       background: isActiveMatch
+  ? "rgba(245,240,255,1)"
+  : "rgba(255,255,255,0.95)",
+
+        color: "#1e0a3c",
+
+      border: isActiveMatch
+  ? "1px solid rgba(139,92,246,0.20)"
+  : "1px solid rgba(139,92,246,0.12)",
+
+
+        borderRadius: isLast
+          ? "20px 20px 20px 6px"
+          : "20px",
+
+        transform: isActiveMatch ? "scale(1.02)" : "scale(1)",
+
+    transition: "background 0.18s ease, box-shadow 0.18s ease",
+
+      boxShadow: isActiveMatch
+  ? "0 4px 14px rgba(139,92,246,0.10)"
+  : "0 1px 6px rgba(109,40,217,0.06)",
+      }
+}
           >
-            {msg.message}
+          {highlightMessage(msg.message)}
           </div>
 
           {/* Timestamp + status */}
