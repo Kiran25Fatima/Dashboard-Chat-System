@@ -8,7 +8,9 @@ import ChatWindowSkeleton from "../skeletons/ChatWindowSkeleton";
 
 import Avatar from "../ui/Avatar";
 import useCurrentUser from "../../hooks/useCurrentUser";
+import usePresence from "@/hooks/usePresence";
 import { X } from "lucide-react";
+import { formatLastSeen } from "@/lib/utils/format";
 
 // ✅ Helper: deduplicate presence entries by user_id (last entry wins)
 const getLatestPerUser = (all: any[]) =>
@@ -25,16 +27,22 @@ export default function ChatWindow({ selectedConversation }: any) {
   const [loading, setLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-const [searchTerm, setSearchTerm] = useState("");
-const [searchIndex, setSearchIndex] = useState(0);
-const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchIndex, setSearchIndex] = useState(0);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // ✅ Single typing channel instance lives here (lifted up from MessageInput)
   const typingChannelRef = useRef<any>(null);
   const channelReadyRef = useRef(false);
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const { user: currentUser } = useCurrentUser();
+  const selectedPartnerId = selectedConversation?.partner?.id ?? null;
+  const { onlineMap, lastSeenMap } = usePresence(currentUser, selectedPartnerId ? [selectedPartnerId] : []);
+  const lastSeen = selectedPartnerId ? lastSeenMap[selectedPartnerId] : null;
+  const isPartnerOnline = !!selectedPartnerId && !!onlineMap[selectedPartnerId];
+  const hasLastSeen = !!lastSeen;
+  const showLastSeen = !isTyping && !isPartnerOnline && hasLastSeen;
+
   // keep local `user` state in sync with hook
   useEffect(() => {
     setUser(currentUser);
@@ -49,23 +57,29 @@ const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     const conversationId = selectedConversation.id;
     setConversationId(conversationId);
-    setLoading(true);
+    setLoading(false);
 
-    const markMessagesRead = async () => {
-      await supabase
-        .from("messages")
-        .update({
-          is_read: true,
-          status: "seen",
-          read_at: new Date().toISOString(),
-        })
-        .eq("conversation_id", conversationId)
-        .eq("receiver_id", user.id)
-        .eq("is_read", false);
-    };
+//     const markMessagesRead = async () => {
+//       await supabase
+//         .from("messages")
+//         .update({
+//           is_read: true,
+//           status: "seen",
+//           read_at: new Date().toISOString(),
+//         })
+//         .eq("conversation_id", conversationId)
+//         .eq("receiver_id", user.id)
+//         .eq("is_read", false)
+//         .eq("status", "delivered")
+//     };
 
-    markMessagesRead().finally(() => setLoading(false));
-  }, [selectedConversation, user]);
+//     const run = async () => {
+//   await new Promise(r => setTimeout(r, 500));
+//   await markMessagesRead();
+//   setLoading(false);
+// };
+// run();
+  }, [selectedConversation?.id, user?.id]);
 
   // ✅ Only ONE channel is created here — shared with MessageInput via broadcastTyping prop
   useEffect(() => {
@@ -149,6 +163,7 @@ const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
       channelReadyRef.current = false;
     };
   }, [conversationId, selectedConversation, user]);
+
 
   const nextMatch = () => {
   setSearchIndex((prev) => prev + 1);
@@ -278,17 +293,23 @@ overflow-hidden
 
        
           <div className="min-w-0 flex-1 overflow-hidden">
-            <h2
-              className="text-sm font-bold truncate"
-              style={{ color: "#2e1065", letterSpacing: "-0.01em" }}
-            >
-              {selectedConversation?.partner?.full_name}
-            </h2>
-            {isTyping && (
+           <h2 className="text-sm font-bold truncate">
+  {selectedConversation?.partner?.full_name}
+</h2>
+
+{isTyping ? (
   <p className="text-xs font-medium animate-pulse" style={{ color: "#8b5cf6" }}>
     Typing…
   </p>
-)}
+) : isPartnerOnline ? (
+  <p className="text-xs font-medium" style={{ color: "#34d399" }}>
+    Online
+  </p>
+) : showLastSeen ? (
+  <p className="text-xs font-medium" style={{ color: "#b8acd6" }}>
+    last seen {formatLastSeen(lastSeen)}
+  </p>
+) : null}
           </div>
         </div>
 
@@ -434,6 +455,7 @@ shrink-0
 >
         <MessageList
   conversationId={conversationId!}
+   currentUserId={currentUser?.id} 
   searchTerm={searchTerm}
   searchIndex={searchIndex}
   setSearchIndex={setSearchIndex}

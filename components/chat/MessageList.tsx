@@ -11,18 +11,22 @@ export default function MessageList({
   conversationId,
   searchTerm,
   searchIndex,
+  currentUserId,
   setSearchIndex,
   messageRefs,
-  hasMessages,
 }: any) {
   const [messages, setMessages] = useState<any[]>([]);
-  const { user } = useCurrentUser();
-  const [currentUserId, setCurrentUserId] = useState("");
-  const [isLoading, setIsLoading] = useState(hasMessages ?? true);
+ 
+  
+  const [isLoading, setIsLoading] = useState(true);
+
 
 
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  const prevConversationIdRef = useRef<string | null>(null);
 
   const filteredMessages = searchTerm
   ? messages.filter((msg) =>
@@ -35,9 +39,14 @@ export default function MessageList({
     )
   : [];
 
-  useEffect(() => {
-    if (user) setCurrentUserId(user.id);
-  }, [user]);
+ 
+
+useEffect(() => {
+  notificationSoundRef.current = new Audio("/sounds/message.mp3");
+  notificationSoundRef.current.volume = 0.7;
+}, []);
+
+
 
   const markMessagesRead = async (messageId?: string) => {
     if (!conversationId || !currentUserId) return;
@@ -61,23 +70,27 @@ export default function MessageList({
   };
 
   const fetchMessages = async () => {
-    setIsLoading(true);
-
-    if (!conversationId) {
-      setMessages([]);
-      setIsLoading(false);
-      return;
-    }
-
-    const { data } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-
-    setMessages(data || []);
+  if (!conversationId) {
+    setMessages([]);
     setIsLoading(false);
-  };
+    return;
+  }
+
+  if (prevConversationIdRef.current !== conversationId) {
+    setMessages([]);
+    setIsLoading(true);
+    prevConversationIdRef.current = conversationId;
+  }
+
+  const { data } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+
+  setMessages(data || []);
+  setIsLoading(false);
+};
 
   useEffect(() => {
     fetchMessages();
@@ -100,12 +113,16 @@ export default function MessageList({
           const msg = payload.new;
 
          if (msg.receiver_id === currentUserId) {
+
+  notificationSoundRef.current?.play();
+
   setMessages((prev) => [
     ...prev,
     { ...msg, status: "delivered" },
   ]);
-            return;
-          }
+
+  return;
+}
 
           setMessages((prev) => [...prev, msg]);
         }
@@ -132,17 +149,15 @@ export default function MessageList({
 
 useEffect(() => {
   if (!conversationId || !currentUserId) return;
-
-  const markDelivered = async () => {
+  const run = async () => {
     await supabase
       .from("messages")
-      .update({ status: "delivered" })
+      .update({ is_read: true, status: "seen", read_at: new Date().toISOString() })
       .eq("conversation_id", conversationId)
       .eq("receiver_id", currentUserId)
-      .eq("status", "sent");
+      .eq("is_read", false);
   };
-
-  markDelivered();
+  run();
 }, [conversationId, currentUserId]);
 
   useEffect(() => {
@@ -159,7 +174,7 @@ useEffect(() => {
   if (target && messageRefs.current[target]) {
     messageRefs.current[target].scrollIntoView({
       behavior: "smooth",
-      block: "nearest",
+      block: "center",
     });
   }
 }, [searchIndex, searchTerm, messages]);
@@ -253,42 +268,6 @@ useEffect(() => {
   const isActiveMatch =
   isMatch &&
   matches[searchIndex % matches.length]?.id === msg.id;
-
- const highlightMessage = (text: string) => {
-  if (!searchTerm) return text;
-
-  const regex = new RegExp(`(${searchTerm})`, "gi");
-
-  return text.split(regex).map((part, index) => {
-    const matched =
-      part.toLowerCase() === searchTerm.toLowerCase();
-
-    if (!matched) return part;
-
-    return (
-      <span
-        key={index}
-        style={{
-          background: isMe
-            ? "rgba(255,255,255,0.22)"
-            : "rgba(139,92,246,0.14)",
-
-          color: isMe ? "#fff" : "#5b21b6",
-
-          padding: "1px 3px",
-          borderRadius: "4px",
-
-          fontWeight: 600,
-
-          boxDecorationBreak: "clone",
-          WebkitBoxDecorationBreak: "clone",
-        }}
-      >
-        {part}
-      </span>
-    );
-  });
-};
     const isMe = msg.sender_id === currentUserId;
 
     const showDateDivider =
@@ -336,57 +315,33 @@ useEffect(() => {
           className={`flex flex-col max-w-[78%] md:max-w-[60%] ${isMe ? "items-end" : "items-start"}`}
         >
          
-          <div
-            className="relative px-4 py-2.5 text-[14.5px] leading-relaxed wrap-break-words"
-           style={
-  isMe
-    ? {
-       background: isActiveMatch
-  ? "linear-gradient(135deg, #8b5cf6 0%, #9333ea 100%)"
-  : "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
-
-        color: "#ffffff",
-
-        borderRadius: isLast
-          ? "20px 20px 6px 20px"
-          : "20px",
-
-        transform: isActiveMatch ? "scale(1.02)" : "scale(1)",
-
-       transition: "background 0.18s ease, box-shadow 0.18s ease",
-
-    boxShadow: isActiveMatch
-  ? "0 6px 18px rgba(124,58,237,0.22)"
-  : "0 2px 10px rgba(124,58,237,0.16)",
-      }
-    : {
-       background: isActiveMatch
-  ? "rgba(245,240,255,1)"
-  : "rgba(255,255,255,0.95)",
-
-        color: "#1e0a3c",
-
-      border: isActiveMatch
-  ? "1px solid rgba(139,92,246,0.20)"
-  : "1px solid rgba(139,92,246,0.12)",
-
-
-        borderRadius: isLast
-          ? "20px 20px 20px 6px"
-          : "20px",
-
-        transform: isActiveMatch ? "scale(1.02)" : "scale(1)",
-
-    transition: "background 0.18s ease, box-shadow 0.18s ease",
-
-      boxShadow: isActiveMatch
-  ? "0 4px 14px rgba(139,92,246,0.10)"
-  : "0 1px 6px rgba(109,40,217,0.06)",
-      }
-}
-          >
-          {highlightMessage(msg.message)}
-          </div>
+ <div
+  className="relative px-4 py-2.5 text-[14.5px] leading-relaxed wrap-break-words"
+  style={
+    isMe
+      ? {
+          background: "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
+          color: "#ffffff",
+          borderRadius: isLast ? "20px 20px 6px 20px" : "20px",
+          boxShadow: isActiveMatch
+            ? "0 4px 16px rgba(124,58,237,0.28), 0 0 0 3px rgba(139,92,246,0.25)"
+            : "0 4px 16px rgba(124,58,237,0.28), 0 1px 4px rgba(124,58,237,0.15)",
+          outline: "none",
+        }
+      : {
+          background: "rgba(255,255,255,0.95)",
+          color: "#1e0a3c",
+          border: "1px solid rgba(139,92,246,0.12)",
+          borderRadius: isLast ? "20px 20px 20px 6px" : "20px",
+          boxShadow: isActiveMatch
+            ? "0 2px 12px rgba(109,40,217,0.07), 0 0 0 3px rgba(139,92,246,0.25)"
+            : "0 2px 12px rgba(109,40,217,0.07), 0 1px 3px rgba(109,40,217,0.04)",
+          outline: "none",
+        }
+  }
+>
+  {msg.message}
+</div>
 
           {/* Timestamp + status */}
          {isLast && (

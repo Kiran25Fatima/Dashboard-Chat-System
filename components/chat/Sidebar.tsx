@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import useCurrentUser from "../../hooks/useCurrentUser";
 import useConversations from "@/hooks/useConversations";
 import SidebarHeader from "@/components/sidebar/SidebarHeader";
@@ -8,7 +9,7 @@ import FilterBar from "@/components/sidebar/FilterBar";
 import ConversationList from "@/components/sidebar/ConversationList";
 
 export default function Sidebar(props: any) {
-  const { onSelectConversation, selectedConversationId, onOpenNewChat, newConversation } = props;
+  const { onSelectConversation, selectedConversationId, onOpenNewChat, newConversation, onUpdateSelectedConversation } = props;
   const { user, loading } = useCurrentUser();
 
   const {
@@ -25,6 +26,14 @@ export default function Sidebar(props: any) {
     setFilter,
     conversations,
   } = useConversations({ user, selectedConversationId, newConversation, onSelectConversation, loading });
+
+  useEffect(() => {
+    if (!selectedConversationId || !onUpdateSelectedConversation) return;
+    const selected = conversations.find((conversation: any) => conversation.id === selectedConversationId);
+    if (selected) {
+      onUpdateSelectedConversation(selected);
+    }
+  }, [conversations, selectedConversationId, onUpdateSelectedConversation]);
 
   return (
     <div
