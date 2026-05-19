@@ -1,12 +1,13 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import usePresence from "@/hooks/usePresence";
 
 export default function useConversations({ user, loading, selectedConversationId, newConversation, onSelectConversation }: any) {
   const [conversations, setConversations] = useState<any[]>([]);
-  const [onlineMap, setOnlineMap] = useState<any>({});
+  const { onlineMap } = usePresence(user);
   const [search, setSearch] = useState("");
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -21,6 +22,7 @@ export default function useConversations({ user, loading, selectedConversationId
     setCurrentUserId(userId);
 
     if (!userId) {
+      
       setConversations([]);
       setUnreadMap({});
       setIsLoading(false);
@@ -62,11 +64,18 @@ export default function useConversations({ user, loading, selectedConversationId
     );
 
     const formattedConversations = (conversationsData || []).map((conversation: any) => {
-      const partnerId = conversation.user1_id === userId ? conversation.user2_id : conversation.user1_id;
+      const partnerId =
+        conversation.user1_id === userId ? conversation.user2_id : conversation.user1_id;
+
+      const profile = profileMap[partnerId];
+
       return {
         ...conversation,
         last_message: lastMessageMap[conversation.id] || conversation.last_message,
-        partner: profileMap[partnerId] || { id: partnerId, full_name: "Unknown" },
+        partner: {
+          id: partnerId,
+          full_name: profile?.full_name || "Unknown",
+        },
       };
     });
 
@@ -81,7 +90,11 @@ export default function useConversations({ user, loading, selectedConversationId
       unreadCountByConversation[message.conversation_id] =
         (unreadCountByConversation[message.conversation_id] || 0) + 1;
     });
-
+await supabase
+  .from("messages")
+  .update({ status: "delivered" })
+  .eq("receiver_id", userId)
+  .eq("status", "sent");
     setConversations(formattedConversations);
     setUnreadMap(unreadCountByConversation);
     setIsLoading(false);
@@ -114,8 +127,8 @@ export default function useConversations({ user, loading, selectedConversationId
     });
   }, [newConversation]);
 
+
   useEffect(() => {
-    const presenceChannel = supabase.channel("online-users");
     const messageChannel = supabase
       .channel("realtime-messages")
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, async (payload) => {
@@ -127,6 +140,12 @@ export default function useConversations({ user, loading, selectedConversationId
               ...prev,
               [msg.conversation_id]: (prev[msg.conversation_id] || 0) + 1,
             }));
+             supabase
+    .from("messages")
+    .update({ status: "delivered" })
+    .eq("id", msg.id)
+    .eq("status", "sent")
+    .then(() => {});
           }
           setConversations((prev: any[]) => {
             const updated = prev.map((conversation) =>
@@ -155,26 +174,11 @@ export default function useConversations({ user, loading, selectedConversationId
       })
       .subscribe();
 
-    presenceChannel
-      .on("presence", { event: "sync" }, () => {
-        const state = presenceChannel.presenceState();
-        const onlineUsers: any = {};
-        Object.keys(state).forEach((key) => {
-          state[key].forEach((p: any) => { onlineUsers[p.user_id] = true; });
-        });
-        setOnlineMap(onlineUsers);
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED" && user) {
-          await presenceChannel.track({ user_id: user.id, online_at: new Date().toISOString() });
-        }
-      });
-
     return () => {
-      supabase.removeChannel(presenceChannel);
       supabase.removeChannel(messageChannel);
     };
   }, [currentUserId, activeConversationId]);
+  
 
   const openConversation = (conversation: any) => {
     setActiveConversationId(conversation.id);

@@ -213,6 +213,9 @@ w-95 h-full flex flex-col overflow-hidden
                 setSelectedConversation(conversation);
                 setSidebarOpen(false);
               }}
+              onUpdateSelectedConversation={(conversation: any) => {
+                setSelectedConversation(conversation);
+              }}
             />
           </aside>
           <div className="flex-1 min-w-0 flex flex-col bg-white relative" style={{
