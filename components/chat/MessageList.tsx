@@ -4,59 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MessageListSkeleton from "@/components/skeletons/MessageListSkeleton";
 import type { ReactNode } from "react";
-
-function formatTime(ts: string) {
-  return new Date(ts).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDateLabel(ts: string) {
-  const d = new Date(ts);
-
-  const today = new Date();
-
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
-  if (d.toDateString() === today.toDateString()) {
-    return "Today";
-  }
-
-  if (d.toDateString() === yesterday.toDateString()) {
-    return "Yesterday";
-  }
-
-  return d.toLocaleDateString([], {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-}
-
-function isSameDay(a: string, b: string) {
-  return new Date(a).toDateString() === new Date(b).toDateString();
-}
+import { formatTime, formatDateLabel, isSameDay } from "@/lib/utils/format";
+import useCurrentUser from "@/hooks/useCurrentUser";
 
 export default function MessageList({ conversationId }: any) {
   const [messages, setMessages] = useState<any[]>([]);
+  const { user } = useCurrentUser();
   const [currentUserId, setCurrentUserId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-
-      if (data.user) {
-        setCurrentUserId(data.user.id);
-      }
-    };
-
-    getUser();
-  }, []);
+    if (user) setCurrentUserId(user.id);
+  }, [user]);
 
   const markMessagesRead = async (messageId?: string) => {
     if (!conversationId || !currentUserId) return;
@@ -70,7 +31,7 @@ export default function MessageList({ conversationId }: any) {
       })
       .eq("conversation_id", conversationId)
       .eq("receiver_id", currentUserId)
-      .eq("is_read", false);
+      .eq("status", "delivered")
 
     if (messageId) {
       updateQuery.eq("id", messageId);
@@ -118,12 +79,11 @@ export default function MessageList({ conversationId }: any) {
         async (payload) => {
           const msg = payload.new;
 
-          if (msg.receiver_id === currentUserId) {
-            setMessages((prev) => [
-              ...prev,
-              { ...msg, is_read: true, status: "seen" },
-            ]);
-            await markMessagesRead(msg.id);
+         if (msg.receiver_id === currentUserId) {
+  setMessages((prev) => [
+    ...prev,
+    { ...msg, status: "delivered" },
+  ]);
             return;
           }
 
@@ -148,6 +108,22 @@ export default function MessageList({ conversationId }: any) {
       supabase.removeChannel(channel);
     };
   }, [conversationId, currentUserId]);
+
+
+useEffect(() => {
+  if (!conversationId || !currentUserId) return;
+
+  const markDelivered = async () => {
+    await supabase
+      .from("messages")
+      .update({ status: "delivered" })
+      .eq("conversation_id", conversationId)
+      .eq("receiver_id", currentUserId)
+      .eq("status", "sent");
+  };
+
+  markDelivered();
+}, [conversationId, currentUserId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -273,10 +249,10 @@ export default function MessageList({ conversationId }: any) {
     rendered.push(
       <div
         key={msg.id}
-        className={`flex px-3 md:px-5 ${isGrouped ? "mt-0.5" : "mt-3"} ${isMe ? "justify-end" : "justify-start"}`}
+        className={`flex ${isGrouped ? "mt-0.5" : "mt-3"} ${isMe ? "justify-end" : "justify-start"}`}
       >
         <div
-          className={`flex flex-col max-w-[85%] md:max-w-[68%] ${isMe ? "items-end" : "items-start"}`}
+          className={`flex flex-col max-w-[78%] md:max-w-[60%] ${isMe ? "items-end" : "items-start"}`}
         >
          
           <div
@@ -393,7 +369,7 @@ export default function MessageList({ conversationId }: any) {
         background: "linear-gradient(180deg, #fdfcff 0%, #f8f5ff 40%, #fdfcff 100%)",
       }}
     >
-      <div className="flex flex-col py-2">{rendered}</div>
+      <div className="flex flex-col py-3 px-5 md:px-14 lg:px-24">{rendered}</div>
       <div ref={bottomRef} className="h-5 shrink-0" />
     </div>
   );

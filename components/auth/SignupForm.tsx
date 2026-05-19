@@ -4,6 +4,11 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
+import PrimaryButton from "@/components/ui/PrimaryButton";
+import FormError from "@/components/ui/FormError";
+import InputField from "@/components/ui/InputField";
+import Card from "@/components/ui/Card";
+
 export default function SignupForm() {
   const router = useRouter();
 
@@ -59,12 +64,6 @@ export default function SignupForm() {
     setLoading(false);
     router.push("/dashboard");
   };
-
-  const inputContainer = "relative flex items-center";
-  const iconStyle =
-    "absolute left-4 text-slate-400 w-5 h-5 transition-colors duration-200 group-focus-within:text-purple-500";
-  const inputBase =
-  "w-full pl-11 pr-4 py-3 rounded-xl bg-white/80 border border-slate-200 text-slate-900 placeholder-slate-400 outline-none transition focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 shadow-sm";
 
   return (
     <div className="min-h-screen flex bg-linear-to-br from-slate-50 via-indigo-50/40 to-purple-100/40 font-sans selection:bg-purple-100 selection:text-purple-900">
@@ -161,166 +160,262 @@ export default function SignupForm() {
 />
 
         <div className="w-full max-w-md relative z-10">
-          <div
-  className="rounded-3xl p-6 sm:p-8 md:p-10 backdrop-blur-2xl"
-  style={{
-    background: "rgba(255,255,255,0.75)",
-    border: "1px solid rgba(255,255,255,0.7)",
-    boxShadow:
-      "0 20px 60px rgba(124,58,237,0.12), 0 40px 100px rgba(124,58,237,0.14)",
-  }}
->
-
+          <Card
+            className="rounded-3xl p-6 sm:p-8 md:p-10"
+            style={{
+              background: "rgba(255,255,255,0.75)",
+              border: "1px solid rgba(255,255,255,0.7)",
+              boxShadow:
+                "0 20px 60px rgba(124,58,237,0.12), 0 40px 100px rgba(124,58,237,0.14)",
+            }}
+          >
             <header className="mb-8 text-center lg:text-left">
               <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">Create account</h2>
               <p className="text-sm font-medium text-slate-500 mt-2">Start your seamless chatting experience today.</p>
             </header>
 
-            {error && (
-              <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-700 text-sm border border-red-100 flex items-center gap-3">
-                <svg className="w-5 h-5 shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                {error}
-              </div>
-            )}
+            <FormError message={error} style={{ marginBottom: "1.5rem", borderRadius: "1rem", background: "#fef2f2", borderColor: "rgba(239,68,68,0.15)", color: "#b91c1c" }} />
 
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1 group">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">First name <span className="text-red-500">*</span></label>
-                  <div className={inputContainer}>
-                    <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <InputField
+                  label="First name"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Jane"
+                  icon={
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
                     </svg>
-                    <input className={inputBase} onChange={(e) => setFirstName(e.target.value)} placeholder="Jane" />
-                  </div>
-                </div>
+                  }
+                  inputClassName="text-sm"
+                  inputStyle={{
+                    color: "#0f172a",
+                    fontFamily: "inherit",
+                  }}
+                />
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">Last name <span className="text-red-500">*</span></label>
-                  <input className="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-900 placeholder-gray-400 outline-none transition-all duration-300 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 hover:border-gray-300 shadow-sm" onChange={(e) => setLastName(e.target.value)} placeholder="Doe" />
-                </div>
+                <InputField
+                  label="Last name"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Doe"
+                  icon={
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
+                  }
+                  inputClassName="text-sm"
+                />
               </div>
 
-              <div className="space-y-1 group">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">Email address <span className="text-red-500">*</span></label>
-                <div className={inputContainer}>
-                  <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              <InputField
+                label="Email address"
+                required
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="jane@example.com"
+                icon={
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
                   </svg>
-                  <input type="email" className={inputBase} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" />
-                </div>
-              </div>
+                }
+                inputClassName="text-sm"
+              />
 
-              <div className="space-y-1 group">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">Password <span className="text-red-500">*</span></label>
-                <div className={inputContainer}>
-                  <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              <InputField
+                label="Password"
+                required
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                icon={
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
                   </svg>
-                  <input type={showPassword ? "text" : "password"} className={inputBase} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-                 <button
-  type="button"
-  onClick={() => setShowPassword(!showPassword)}
-  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-purple-600 transition"
->
-  {showPassword ? (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.05-2.35 2.85-4.32 5.125-5.575M6.18 6.18A9.953 9.953 0 0112 5c5 0 9.27 3.11 11 7a10.06 10.06 0 01-4.21 5.06M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3l18 18" />
-    </svg>
-  ) : (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-    </svg>
-  )}
-</button>
-                </div>
-              </div>
-
-              <div className="space-y-1 group">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">Confirm Password  <span className="text-red-500">*</span></label>
-                <div className={inputContainer}>
-                  <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <input type={showConfirmPassword ? "text" : "password"} className={inputBase} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" />
+                }
+                suffix={
                   <button
-  type="button"
-  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-purple-600 transition"
->
-  {showConfirmPassword ? (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.05-2.35 2.85-4.32 5.125-5.575M6.18 6.18A9.953 9.953 0 0112 5c5 0 9.27 3.11 11 7a10.06 10.06 0 01-4.21 5.06M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3l18 18" />
-    </svg>
-  ) : (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-    </svg>
-  )}
-</button>
-                </div>
-              </div>
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-gray-400 hover:text-purple-600 transition"
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.05-2.35 2.85-4.32 5.125-5.575M6.18 6.18A9.953 9.953 0 0112 5c5 0 9.27 3.11 11 7a10.06 10.06 0 01-4.21 5.06M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M3 3l18 18"
+                        />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                }
+                inputClassName="text-sm"
+              />
 
-              <div className="space-y-1 group">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">Phone (optional)</label>
-                <div className={inputContainer}>
-                  <svg className={iconStyle} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              <InputField
+                label="Confirm Password"
+                required
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                icon={
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
                   </svg>
-                  <input className={inputBase} onChange={(e) => setPhone(e.target.value)} placeholder="+1 555 000 0000" />
-                </div>
-              </div>
+                }
+                suffix={
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="text-slate-400 hover:text-purple-600 transition"
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.05-2.35 2.85-4.32 5.125-5.575M6.18 6.18A9.953 9.953 0 0112 5c5 0 9.27 3.11 11 7a10.06 10.06 0 01-4.21 5.06M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M3 3l18 18"
+                        />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                }
+                inputClassName="text-sm"
+              />
+
+              <InputField
+                label="Phone (optional)"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 555 000 0000"
+                icon={
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    />
+                  </svg>
+                }
+                inputClassName="text-sm"
+              />
             </div>
 
-            <button
-  onClick={handleSignup}
-  disabled={loading}
-  className="w-full mt-8 py-3.5 text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-  style={{
-    borderRadius: "14px",
-    background: "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
-    boxShadow: "0 6px 20px rgba(124,58,237,0.35)",
-    letterSpacing: "0.01em",
-  }}
-  onMouseEnter={(e) => {
-    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-      "0 8px 28px rgba(124,58,237,0.45)";
-    (e.currentTarget as HTMLButtonElement).style.transform =
-      "translateY(-1px)";
-  }}
-  onMouseLeave={(e) => {
-    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-      "0 6px 20px rgba(124,58,237,0.35)";
-    (e.currentTarget as HTMLButtonElement).style.transform =
-      "translateY(0)";
-  }}
->
-  {loading ? (
-    <span className="flex items-center justify-center gap-2">
-      <span
-        className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
-        style={{
-          borderColor: "rgba(255,255,255,0.35)",
-          borderTopColor: "#ffffff",
-        }}
-      />
-      Creating account…
-    </span>
-  ) : (
-    "Create account"
-  )}
-</button>
+            <PrimaryButton onClick={handleSignup} disabled={loading} loading={loading} loadingLabel="Creating account…">
+              Create account
+            </PrimaryButton>
 
             <p className="text-center text-sm text-slate-500  mt-8">
               Already have an account? <a href="/login" className="text-purple-600 font-bold">Sign in</a>
             </p>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
