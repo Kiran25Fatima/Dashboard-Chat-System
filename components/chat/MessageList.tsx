@@ -431,8 +431,8 @@ useEffect(() => {
         background: "linear-gradient(180deg, #fdfcff 0%, #f8f5ff 40%, #fdfcff 100%)",
       }}
     >
-      <div className="flex flex-col py-3 px-5 md:px-14 lg:px-24">{rendered}</div>
-      <div ref={bottomRef} className="h-5 shrink-0" />
+     <div className="flex flex-col py-1 px-2 md:px-4 lg:px-6">{rendered}</div>
+      <div ref={bottomRef} className="h-1 shrink-0" />
     </div>
   );
 }

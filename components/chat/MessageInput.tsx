@@ -104,7 +104,7 @@ export default function MessageInput({
     .from("conversations")
     .update({
       last_message: text,
-        updated_at: new Date().toISOString(),
+       updated_at: insertedMessage.created_at,
     })
     .eq("id", conversationId);
 
