@@ -113,10 +113,10 @@ await supabase
   };
 
   useEffect(() => {
-    // wait until useCurrentUser has finished loading
+  
     if (loading) return;
     loadConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [loading, user]);
 
   useEffect(() => {
@@ -141,7 +141,7 @@ await supabase
   useEffect(() => {
     const messageChannel = supabase
       .channel("realtime-messages")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, async (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const msg: any = payload.new;
         if (!currentUserId) return;
         if (msg.sender_id === currentUserId || msg.receiver_id === currentUserId) {
@@ -178,7 +178,22 @@ await supabase
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
         const msg: any = payload.new;
-        if (!currentUserId || msg.receiver_id !== currentUserId) return;
+        if (!currentUserId) return;
+         if (msg.deleted_at && (msg.sender_id === currentUserId || msg.receiver_id === currentUserId)) {
+    setConversations((prev: any[]) => {
+      const updated = prev.map((conversation) =>
+        conversation.id === msg.conversation_id
+          ? {
+              ...conversation,
+              last_message: "This message was deleted",
+            }
+          : conversation
+      );
+      return [...updated].sort(
+        (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
+    });
+  }
         if (msg.is_read === true) {
           setUnreadMap((prev: any) => ({
             ...prev,

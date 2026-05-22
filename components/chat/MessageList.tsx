@@ -6,6 +6,7 @@ import MessageListSkeleton from "@/components/skeletons/MessageListSkeleton";
 import type { ReactNode } from "react";
 import { formatTime, formatDateLabel, isSameDay } from "@/lib/utils/format";
 import useCurrentUser from "@/hooks/useCurrentUser";
+import MessageActions from "@/components/chat/MessageActions";
 
 export default function MessageList({
   conversationId,
@@ -30,12 +31,14 @@ export default function MessageList({
 
   const filteredMessages = searchTerm
   ? messages.filter((msg) =>
-      msg.message?.toLowerCase().includes(searchTerm.toLowerCase())
+     !msg.deleted_at &&
+msg.message?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   : messages;
  const matches = searchTerm
   ? messages.filter((msg) =>
-      msg.message?.toLowerCase().includes(searchTerm.toLowerCase())
+      !msg.deleted_at &&
+msg.message?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   : [];
 
@@ -159,6 +162,17 @@ useEffect(() => {
   };
   run();
 }, [conversationId, currentUserId]);
+
+const deleteForEveryone = async (messageId: string) => {
+  await supabase
+    .from("messages")
+    .update({
+      deleted_at: new Date().toISOString(),
+      message: "This message was deleted",
+    })
+    .eq("id", messageId)
+    .eq("sender_id", currentUserId);
+};
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -311,25 +325,61 @@ useEffect(() => {
   }}
   className={`flex ${isGrouped ? "mt-0.5" : "mt-3"} ${isMe ? "justify-end" : "justify-start"}`}
 >
-        <div
-          className={`flex flex-col max-w-[78%] md:max-w-[60%] ${isMe ? "items-end" : "items-start"}`}
-        >
-         
+     <div
+  className={`
+    group relative
+    flex flex-col
+    max-w-[78%] md:max-w-[60%]
+    ${isMe ? "items-end self-end" : "items-start self-start"}
+  `}
+
+>
+<div className="relative w-full">
+{isMe && !msg.deleted_at && (
  <div
-  className="relative px-4 py-2.5 text-[14.5px] leading-relaxed wrap-break-words"
+    className="
+      absolute
+      top-2
+      opacity-0
+      group-hover:opacity-100
+      transition-all duration-150
+      z-20
+    "
+    style={{
+      right: "100%",
+      marginRight: "8px",
+    }}
+  >
+    <MessageActions
+      onDeleteForEveryone={() =>
+        deleteForEveryone(msg.id)
+      }
+    />
+  </div>
+)}
+
+
+<div
+  className="relative px-4 py-2.5 text-[14.5px] leading-relaxed wrap-break-words transition-all duration-200"
   style={
     isMe
       ? {
-          background: "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
-          color: "#ffffff",
+      background: msg.deleted_at ? "transparent" : "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
+border: msg.deleted_at ? "1px dashed rgba(124,58,237,0.35)" : "none",
+color: msg.deleted_at ? "rgba(124,58,237,0.6)" : "#ffffff",                                     
+      opacity: msg.deleted_at ? 0.9 : 1,
+fontWeight: msg.deleted_at ? 500 : 400,
           borderRadius: isLast ? "20px 20px 6px 20px" : "20px",
           boxShadow: isActiveMatch
             ? "0 4px 16px rgba(124,58,237,0.28), 0 0 0 3px rgba(139,92,246,0.25)"
             : "0 4px 16px rgba(124,58,237,0.28), 0 1px 4px rgba(124,58,237,0.15)",
           outline: "none",
+          backdropFilter: msg.deleted_at ? "blur(8px)" : undefined,
         }
       : {
-          background: "rgba(255,255,255,0.95)",
+        background: msg.deleted_at
+  ? "#f4f1fb"
+  : "rgba(255,255,255,0.95)",
           color: "#1e0a3c",
           border: "1px solid rgba(139,92,246,0.12)",
           borderRadius: isLast ? "20px 20px 20px 6px" : "20px",
@@ -337,10 +387,31 @@ useEffect(() => {
             ? "0 2px 12px rgba(109,40,217,0.07), 0 0 0 3px rgba(139,92,246,0.25)"
             : "0 2px 12px rgba(109,40,217,0.07), 0 1px 3px rgba(109,40,217,0.04)",
           outline: "none",
+          backdropFilter: msg.deleted_at ? "blur(8px)" : undefined,
         }
   }
 >
-  {msg.message}
+{msg.deleted_at ? (
+  <div
+    className="flex items-center gap-2 select-none"
+    style={{
+      fontSize: "13px",
+      fontStyle: "italic",
+      color: isMe ? "rgba(124,58,237,0.6)" : "var(--color-text-tertiary, #9ca3af)",
+      lineHeight: 1.4,
+    }}
+  >
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none"
+      stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0, opacity: 0.8 }}>
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M12 8v4m0 4h.01"/>
+    </svg>
+    <span>{isMe ? "You deleted this message" : "This message was deleted"}</span>
+  </div>
+) : (
+  msg.message
+)}
+</div>
 </div>
 
           {/* Timestamp + status */}

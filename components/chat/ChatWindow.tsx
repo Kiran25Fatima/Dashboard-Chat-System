@@ -448,7 +448,7 @@ shrink-0
 
   
       <div
-  className="flex-1 min-h-0 overflow-y-auto px-2"
+  className="flex-1 min-h-0 overflow-y-auto px-2 pb-5 "
   style={{
     background: "linear-gradient(180deg, #fdfcff 0%, #f9f7ff 60%, #ffffff 100%)",
   }}
