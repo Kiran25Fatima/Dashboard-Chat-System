@@ -19,6 +19,7 @@ export default function MessageInput({
   const emojiRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef(false);
+  const [file, setFile] = useState<File | null>(null);
 
   
   const closeEmoji = () => setShowEmoji(false);
@@ -65,13 +66,30 @@ export default function MessageInput({
     const text = message.trim();
 
     if (loading) return;
-    if (!text) return;
+    if (!text && !file) return;
     if (!conversationId) {
       console.error("❌ Cannot send message: missing conversationId");
       return;
     }
 
     setLoading(true);
+    let fileUrl = null;
+
+if (file) {
+  const filePath = `${conversationId}/${Date.now()}-${file.name}`;
+
+  const { error } = await supabase.storage
+    .from("chat-files")
+    .upload(filePath, file);
+
+  if (!error) {
+    const { data } = supabase.storage
+      .from("chat-files")
+      .getPublicUrl(filePath);
+
+    fileUrl = data.publicUrl;
+  }
+}
 
     const { data: insertedMessage, error: insertError } = await supabase
       .from("messages")
@@ -79,9 +97,12 @@ export default function MessageInput({
         conversation_id: conversationId,
         sender_id: senderId,
         receiver_id: receiverId,
-        message: text,
+       message: text || "",
         status: "sent",
         is_read: false,
+        file_url: fileUrl,
+file_name: file?.name || null,
+file_type: file?.type || null,
       })
       .select("id, conversation_id, created_at")
 .single();
@@ -103,7 +124,9 @@ export default function MessageInput({
   const { error: updateError } = await supabase
     .from("conversations")
     .update({
-      last_message: text,
+      last_message: file
+  ? (file.type.startsWith("image/") ? "🖼️ Photo" : `📎 ${file.name}`)
+  : text,
        updated_at: insertedMessage.created_at,
     })
     .eq("id", conversationId);
@@ -118,6 +141,7 @@ export default function MessageInput({
 }
 
     setMessage("");
+    setFile(null);
     onMessageSent?.();
 
     if (typingTimeoutRef.current) {
@@ -154,7 +178,7 @@ export default function MessageInput({
   };
 
   const canSend =
-    message.trim().length > 0 && !!conversationId && !loading;
+  (!!message.trim() || !!file) && !!conversationId && !loading;
 
   return (
     <div className="px-2 md:px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
@@ -179,6 +203,7 @@ export default function MessageInput({
         }}
       >
         {/* Emoji picker */}
+        {/* Emoji picker */}
         {showEmoji && (
           <div ref={emojiRef} className="absolute bottom-16 left-0 sm:left-3 z-50 scale-[0.95] sm:scale-100 origin-bottom-left">
             <EmojiPicker
@@ -186,6 +211,64 @@ export default function MessageInput({
                 setMessage((prev) => prev + emoji.emoji);
               }}
             />
+          </div>
+        )}
+
+        {/* File preview bar */}
+        {file && (
+          <div
+            className="flex items-center gap-2 px-3 py-2 mx-2 mt-2"
+            style={{
+              borderRadius: "12px",
+              background: "rgba(139,92,246,0.07)",
+              border: "1px solid rgba(139,92,246,0.15)",
+            }}
+          >
+            <div style={{
+              width: "32px", height: "32px", borderRadius: "8px", flexShrink: 0,
+              background: "rgba(139,92,246,0.12)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              overflow: "hidden",
+            }}>
+              {file.type.startsWith("image/") ? (
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt="preview"
+                  style={{ width: "32px", height: "32px", objectFit: "cover" }}
+                />
+              ) : (
+                <svg width="16" height="16" fill="none" stroke="#7c3aed" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+              )}
+            </div>
+
+            <div style={{ flex: 1, overflow: "hidden" }}>
+              <p style={{
+                margin: 0, fontSize: "13px", fontWeight: 500, color: "#1e0a3c",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>
+                {file.name}
+              </p>
+              <p style={{ margin: 0, fontSize: "11px", color: "rgba(109,40,217,0.55)" }}>
+                {file.type.startsWith("image/") ? "Image" :
+                 file.type === "application/pdf" ? "PDF" :
+                 file.type?.includes("word") ? "Word doc" : "File"} · {(file.size / 1024).toFixed(0)} KB
+              </p>
+            </div>
+
+            <button
+              onClick={() => setFile(null)}
+              style={{
+                background: "rgba(139,92,246,0.1)", border: "none", cursor: "pointer",
+                width: "24px", height: "24px", borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}
+            >
+              <svg width="12" height="12" fill="none" stroke="#7c3aed" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -234,8 +317,10 @@ export default function MessageInput({
           {/* Attachment + send */}
           <div className="flex items-center gap-1 shrink-0">
             <button
-              className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
+            
+              className=" sm:flex w-9 h-9 items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
               style={{ color: "#b8acd6" }}
+              
               onMouseEnter={e => {
                 (e.currentTarget as HTMLButtonElement).style.color = "#7c3aed";
                 (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,92,246,0.06)";
@@ -244,7 +329,21 @@ export default function MessageInput({
                 (e.currentTarget as HTMLButtonElement).style.color = "#b8acd6";
                 (e.currentTarget as HTMLButtonElement).style.background = "transparent";
               }}
+               onClick={(e) => {
+    const input = e.currentTarget.querySelector("input") as HTMLInputElement;
+    input?.click();
+  }}
             >
+              <input
+    type="file"
+    accept="image/*,.pdf,.doc,.docx"
+    hidden
+    onChange={(e) => {
+      if (e.target.files?.[0]) {
+        setFile(e.target.files[0]);
+      }
+    }}
+  />
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
               </svg>

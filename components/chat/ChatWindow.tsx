@@ -81,6 +81,37 @@ export default function ChatWindow({ selectedConversation }: any) {
 // run();
   }, [selectedConversation?.id, user?.id]);
 
+ useEffect(() => {
+  const cid = selectedConversation?.id;
+  const uid = user?.id;
+  if (!cid || !uid) return;
+
+  // Step 1: sent → delivered immediately
+  supabase
+    .from("messages")
+    .update({ status: "delivered" })
+    .eq("conversation_id", cid)
+    .eq("receiver_id", uid)
+    .eq("status", "sent")
+    .then(() => {});
+
+  // Step 2: delivered → seen after 500ms
+  const timer = setTimeout(async () => {
+    await supabase
+      .from("messages")
+      .update({
+        is_read: true,
+        status: "seen",
+        read_at: new Date().toISOString(),
+      })
+      .eq("conversation_id", cid)
+      .eq("receiver_id", uid)
+      .eq("is_read", false);
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [selectedConversation?.id, user?.id]); // ← depends on selectedConversation.id not conversationId state
+
   // ✅ Only ONE channel is created here — shared with MessageInput via broadcastTyping prop
   useEffect(() => {
     if (!conversationId || !selectedConversation?.partner || !user) return;
