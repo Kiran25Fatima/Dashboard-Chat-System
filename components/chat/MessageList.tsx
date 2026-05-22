@@ -123,6 +123,11 @@ useEffect(() => {
     ...prev,
     { ...msg, status: "delivered" },
   ]);
+  supabase
+    .from("messages")
+    .update({ is_read: true, status: "seen", read_at: new Date().toISOString() })
+    .eq("id", msg.id)
+    .then(() => {});
 
   return;
 }
@@ -153,12 +158,13 @@ useEffect(() => {
 useEffect(() => {
   if (!conversationId || !currentUserId) return;
   const run = async () => {
+    // First: sent → delivered → seen in one shot
     await supabase
       .from("messages")
       .update({ is_read: true, status: "seen", read_at: new Date().toISOString() })
       .eq("conversation_id", conversationId)
       .eq("receiver_id", currentUserId)
-      .eq("is_read", false);
+      .eq("is_read", false); // covers both sent and delivered
   };
   run();
 }, [conversationId, currentUserId]);
@@ -316,14 +322,14 @@ const deleteForEveryone = async (messageId: string) => {
       );
     }
 
-    
+    const isImageOnly = !!msg.file_url && msg.file_type?.startsWith("image/") && !msg.message;
     rendered.push(
      <div
   key={msg.id}
   ref={(el) => {
     messageRefs.current[msg.id] = el;
   }}
-  className={`flex ${isGrouped ? "mt-0.5" : "mt-3"} ${isMe ? "justify-end" : "justify-start"}`}
+  className={`flex ${isGrouped ? "mt-1" : "mt-4"} ${isMe ? "justify-end" : "justify-start"}`}
 >
      <div
   className={`
@@ -350,6 +356,7 @@ const deleteForEveryone = async (messageId: string) => {
       marginRight: "8px",
     }}
   >
+    
     <MessageActions
       onDeleteForEveryone={() =>
         deleteForEveryone(msg.id)
@@ -359,16 +366,25 @@ const deleteForEveryone = async (messageId: string) => {
 )}
 
 
+
 <div
   className="relative px-4 py-2.5 text-[14.5px] leading-relaxed wrap-break-words transition-all duration-200"
   style={
-    isMe
+    isImageOnly
       ? {
-      background: msg.deleted_at ? "transparent" : "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
-border: msg.deleted_at ? "1px dashed rgba(124,58,237,0.35)" : "none",
-color: msg.deleted_at ? "rgba(124,58,237,0.6)" : "#ffffff",                                     
-      opacity: msg.deleted_at ? 0.9 : 1,
-fontWeight: msg.deleted_at ? 500 : 400,
+          background: "transparent",
+          padding: "0",
+          boxShadow: "none",
+          border: "none",
+          borderRadius: "16px",
+        }
+      : isMe
+      ? {
+          background: msg.deleted_at ? "transparent" : "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)",
+          border: msg.deleted_at ? "1px dashed rgba(124,58,237,0.35)" : "none",
+          color: msg.deleted_at ? "rgba(124,58,237,0.6)" : "#ffffff",
+          opacity: msg.deleted_at ? 0.9 : 1,
+          fontWeight: msg.deleted_at ? 500 : 400,
           borderRadius: isLast ? "20px 20px 6px 20px" : "20px",
           boxShadow: isActiveMatch
             ? "0 4px 16px rgba(124,58,237,0.28), 0 0 0 3px rgba(139,92,246,0.25)"
@@ -377,9 +393,7 @@ fontWeight: msg.deleted_at ? 500 : 400,
           backdropFilter: msg.deleted_at ? "blur(8px)" : undefined,
         }
       : {
-        background: msg.deleted_at
-  ? "#f4f1fb"
-  : "rgba(255,255,255,0.95)",
+          background: msg.deleted_at ? "#f4f1fb" : "rgba(255,255,255,0.95)",
           color: "#1e0a3c",
           border: "1px solid rgba(139,92,246,0.12)",
           borderRadius: isLast ? "20px 20px 20px 6px" : "20px",
@@ -409,7 +423,77 @@ fontWeight: msg.deleted_at ? 500 : 400,
     <span>{isMe ? "You deleted this message" : "This message was deleted"}</span>
   </div>
 ) : (
-  msg.message
+  <>
+  {msg.message}
+
+  {msg.file_url && (
+   <div className={isImageOnly ? "" : "mt-2"}>
+    {msg.file_type?.startsWith("image/") ? (
+      <img
+        src={msg.file_url}
+        alt="image"
+        className="rounded-xl cursor-pointer"
+style={{ display: "block", maxWidth: "280px", width: "100%" }}
+        onClick={() => window.open(msg.file_url, "_blank")}
+      />
+    ) : (
+      
+       <a href={msg.file_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          padding: "10px 14px",
+          borderRadius: "12px",
+          background: isMe ? "rgba(255,255,255,0.15)" : "rgba(139,92,246,0.07)",
+          border: isMe ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(139,92,246,0.15)",
+          textDecoration: "none",
+          maxWidth: "220px",
+        }}
+      >
+        {/* File icon based on type */}
+        <div style={{
+          width: "36px", height: "36px", borderRadius: "8px", flexShrink: 0,
+          background: isMe ? "rgba(255,255,255,0.2)" : "rgba(139,92,246,0.1)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="18" height="18" fill="none" stroke={isMe ? "#fff" : "#7c3aed"} strokeWidth="1.8" viewBox="0 0 24 24">
+            {msg.file_type === "application/pdf" ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+            )}
+          </svg>
+        </div>
+
+        <div style={{ overflow: "hidden", flex: 1 }}>
+          <p style={{
+            margin: 0, fontSize: "13px", fontWeight: 500,
+            color: isMe ? "#fff" : "#1e0a3c",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {msg.file_name || "File"}
+          </p>
+          <p style={{
+            margin: 0, fontSize: "11px",
+            color: isMe ? "rgba(255,255,255,0.65)" : "rgba(109,40,217,0.55)",
+          }}>
+            {msg.file_type === "application/pdf" ? "PDF" :
+             msg.file_type?.includes("word") ? "Word doc" :
+             msg.file_type?.split("/")[1]?.toUpperCase() || "File"} · tap to open
+          </p>
+        </div>
+
+        <svg width="14" height="14" fill="none" stroke={isMe ? "rgba(255,255,255,0.7)" : "#9333ea"} strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+        </svg>
+      </a>
+    )}
+  </div>
+)}
+</>
 )}
 </div>
 </div>

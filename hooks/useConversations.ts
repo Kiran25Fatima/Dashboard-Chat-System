@@ -145,24 +145,35 @@ await supabase
         const msg: any = payload.new;
         if (!currentUserId) return;
         if (msg.sender_id === currentUserId || msg.receiver_id === currentUserId) {
-          if (msg.receiver_id === currentUserId && msg.conversation_id !== activeConversationId) {
-            setUnreadMap((prev: any) => ({
-              ...prev,
-              [msg.conversation_id]: (prev[msg.conversation_id] || 0) + 1,
-            }));
-             supabase
-    .from("messages")
-    .update({ status: "delivered" })
-    .eq("id", msg.id)
-    .eq("status", "sent")
-    .then(() => {});
-          }
+          if (msg.receiver_id === currentUserId) {
+  if (msg.conversation_id !== activeConversationId) {
+    setUnreadMap((prev: any) => ({
+      ...prev,
+      [msg.conversation_id]: (prev[msg.conversation_id] || 0) + 1,
+    }));
+    supabase
+      .from("messages")
+      .update({ status: "delivered" })
+      .eq("id", msg.id)
+      .eq("status", "sent")
+      .then(() => {});
+  } else {
+    // Chat is open — mark seen immediately
+    supabase
+      .from("messages")
+      .update({ is_read: true, status: "seen", read_at: new Date().toISOString() })
+      .eq("id", msg.id)
+      .then(() => {});
+  }
+}
           setConversations((prev: any[]) => {
   const updated = prev.map((conversation) =>
     conversation.id === msg.conversation_id
       ? {
           ...conversation,
-          last_message: msg.message,
+        last_message: msg.message || 
+  (msg.file_type?.startsWith("image/") ? "🖼️ Photo" : 
+   msg.file_name ? `📎 ${msg.file_name}` : "📎 Attachment"),
           updated_at: msg.created_at,
         }
       : conversation
