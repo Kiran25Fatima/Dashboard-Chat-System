@@ -60,7 +60,7 @@ export default function ConversationItem({ conversation, isActive, isOnline, unr
         <p
           className="text-[12.5px] mt-0.5 truncate leading-relaxed"
           style={{
-            color: unreadCount > 0 ? "#374151" : "#9ca3af",
+            color: unreadCount > 0 ? "#695880" : "#9ca3af",
             fontWeight: unreadCount > 0 ? 500 : 400,
           }}
         >

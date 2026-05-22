@@ -21,7 +21,7 @@ export default function Avatar({ name, size = 40, className = "", style = {} }: 
   const baseStyle: React.CSSProperties = {
     width: size,
     height: size,
-    borderRadius: 8,
+    borderRadius: 999,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

@@ -40,12 +40,13 @@ export default function LoginForm() {
   };
 
   const heroContent = (
-    <div className="hidden md:flex w-full h-full overflow-hidden">
+    <div className="relative hidden md:flex w-full h-full overflow-hidden">
       <Image
         src="/pic.jpg"
         alt="Login background"
         fill
         priority
+        sizes="50vw"
         className="object-cover scale-[1.03]"
       />
       <div
