@@ -283,7 +283,7 @@ const deleteForEveryone = async (messageId: string) => {
   const isMatch =
   searchTerm &&
   msg.message?.toLowerCase().includes(searchTerm.toLowerCase());
-
+const isVoiceMessage = !!msg.voice_url;
 
   const isActiveMatch =
   isMatch &&
@@ -424,7 +424,39 @@ const deleteForEveryone = async (messageId: string) => {
   </div>
 ) : (
   <>
-  {msg.message}
+  {msg.voice_url && (
+    <div
+      style={{
+        minWidth: "220px",
+      }}
+    >
+      <audio
+        controls
+        src={msg.voice_url}
+        style={{
+          width: "100%",
+          height: "42px",
+        }}
+      />
+
+      <div
+        style={{
+          fontSize: "11px",
+          marginTop: "4px",
+          opacity: 0.7,
+          color: isMe ? "rgba(255,255,255,0.7)" : "#7c3aed",
+        }}
+      >
+        🎤 {msg.voice_duration || 0}s
+      </div>
+    </div>
+  )}
+
+  {msg.message && (
+    <div className={msg.voice_url ? "mt-2" : ""}>
+      {msg.message}
+    </div>
+  )}
 
   {msg.file_url && (
    <div className={isImageOnly ? "" : "mt-2"}>

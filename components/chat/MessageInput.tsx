@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import EmojiPicker from "emoji-picker-react";
+import useVoiceRecorder from "@/hooks/useVoiceRecorder";
 
 export default function MessageInput({
   conversationId,
@@ -23,6 +24,14 @@ export default function MessageInput({
 
   
   const closeEmoji = () => setShowEmoji(false);
+  const {
+  isRecording,
+  audioBlob,
+  duration,
+  startRecording,
+  stopRecording,
+  resetRecording,
+} = useVoiceRecorder();
 
   // ✅ Now delegates to the shared channel in ChatWindow via onTyping prop
   const broadcastTyping = () => {
@@ -62,11 +71,34 @@ export default function MessageInput({
     };
   }, []);
 
+  const uploadVoiceNote = async () => {
+  if (!audioBlob) return null;
+
+  const filePath = `${conversationId}/${Date.now()}.webm`;
+
+  const { error } = await supabase.storage
+    .from("voice-notes")
+    .upload(filePath, audioBlob, {
+      contentType: "audio/webm",
+    });
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
+  const { data } = supabase.storage
+    .from("voice-notes")
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
+
   const handleSend = async () => {
     const text = message.trim();
 
     if (loading) return;
-    if (!text && !file) return;
+   if (!text && !file && !audioBlob) return;
     if (!conversationId) {
       console.error("❌ Cannot send message: missing conversationId");
       return;
@@ -74,7 +106,11 @@ export default function MessageInput({
 
     setLoading(true);
     let fileUrl = null;
+let voiceUrl = null;
 
+if (audioBlob) {
+  voiceUrl = await uploadVoiceNote();
+}
 if (file) {
   const filePath = `${conversationId}/${Date.now()}-${file.name}`;
 
@@ -90,6 +126,13 @@ if (file) {
     fileUrl = data.publicUrl;
   }
 }
+const isImage = file?.type?.startsWith("image/");
+const isAudio =
+  file?.type?.startsWith("audio/") ||
+  file?.name?.includes("voice") ||
+  file?.name?.includes(".webm") ||
+  file?.name?.includes(".mp3") ||
+  file?.name?.includes(".ogg");
 
     const { data: insertedMessage, error: insertError } = await supabase
       .from("messages")
@@ -97,12 +140,16 @@ if (file) {
         conversation_id: conversationId,
         sender_id: senderId,
         receiver_id: receiverId,
-       message: text || "",
+     message: text || null,
         status: "sent",
         is_read: false,
         file_url: fileUrl,
 file_name: file?.name || null,
 file_type: file?.type || null,
+voice_url: voiceUrl || null,
+  voice_duration: audioBlob ? duration : null,
+
+
       })
       .select("id, conversation_id, created_at")
 .single();
@@ -124,9 +171,13 @@ file_type: file?.type || null,
   const { error: updateError } = await supabase
     .from("conversations")
     .update({
-      last_message: file
-  ? (file.type.startsWith("image/") ? "🖼️ Photo" : `📎 ${file.name}`)
-  : text,
+     last_message: audioBlob
+  ? "🎙 Voice message"
+  : file
+  ? file.type.startsWith("image/")
+    ? "🖼 Photo"
+    : "📄 File"
+  : text || "",
        updated_at: insertedMessage.created_at,
     })
     .eq("id", conversationId);
@@ -142,6 +193,7 @@ file_type: file?.type || null,
 
     setMessage("");
     setFile(null);
+    resetRecording();
     onMessageSent?.();
 
     if (typingTimeoutRef.current) {
@@ -177,8 +229,10 @@ file_type: file?.type || null,
     }
   };
 
-  const canSend =
-  (!!message.trim() || !!file) && !!conversationId && !loading;
+ const canSend =
+  (!!message.trim() || !!file || !!audioBlob) &&
+  !!conversationId &&
+  !loading;
 
   return (
     <div className="px-2 md:px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
@@ -297,7 +351,25 @@ file_type: file?.type || null,
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
             </svg>
           </button>
+{audioBlob && (
+  <div
+    className="flex items-center gap-3 px-3 py-2 mx-2 mt-2"
+    style={{
+      borderRadius: "12px",
+      background: "rgba(139,92,246,0.07)",
+    }}
+  >
+    <audio
+      controls
+      src={URL.createObjectURL(audioBlob)}
+      className="max-w-55"
+    />
 
+    <button onClick={resetRecording}>
+      ❌
+    </button>
+  </div>
+)}
           <textarea
             ref={textareaRef}
             value={message}
@@ -348,7 +420,22 @@ file_type: file?.type || null,
                 <path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
               </svg>
             </button>
-
+<button
+  type="button"
+  onMouseDown={startRecording}
+  onMouseUp={stopRecording}
+  onTouchStart={startRecording}
+  onTouchEnd={stopRecording}
+  className="w-10 h-10 rounded-xl flex items-center justify-center"
+  style={{
+    background: isRecording
+      ? "#dc2626"
+      : "rgba(139,92,246,0.08)",
+    color: isRecording ? "#fff" : "#7c3aed",
+  }}
+>
+  🎤
+</button>
             
             <button
               onClick={handleSend}
