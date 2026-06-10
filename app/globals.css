@@ -12,7 +12,28 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@keyframes recBar {
+  0% {
+    transform: scaleY(0.25);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.5;
+  }
+}
 
+.recording-bar {
+  width: 3px;
+  height: 100%;
+  transform-origin: bottom;
+  border-radius: 999px;
+  animation: recBar 0.9s ease-in-out infinite;
+}
 
 body {
   background: var(--background);

@@ -189,7 +189,7 @@ export default function DashboardPage() {
         </header>
 
         {/* ── Body ── */}
-        <div className="flex-1 flex min-h-0 gap-px bg-[#ede9fe]">
+        <div className="flex-1 flex min-h-0" style={{ background: "rgba(139,92,246,0.07)" }}>
 
       <aside
   className={`
