@@ -7,9 +7,11 @@ import type { ReactNode } from "react";
 import { formatTime, formatDateLabel, isSameDay } from "@/lib/utils/format";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import MessageActions from "@/components/chat/MessageActions";
+import VoiceMessageBubble from "@/components/chat/VoiceMessageBubble";
 
 export default function MessageList({
   conversationId,
+  
   searchTerm,
   searchIndex,
   currentUserId,
@@ -25,6 +27,7 @@ export default function MessageList({
 
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevLen = useRef(0);
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
 
   const prevConversationIdRef = useRef<string | null>(null);
@@ -180,11 +183,19 @@ const deleteForEveryone = async (messageId: string) => {
     .eq("sender_id", currentUserId);
 };
 
-  useEffect(() => {
+ useEffect(() => {
+  const currentLen = messages.length;
+
+  // only scroll when a message is added
+  if (currentLen > prevLen.current) {
     bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
+      behavior: "auto",
+      block: "end",
     });
-  }, [messages.length]);
+  }
+
+  prevLen.current = currentLen;
+}, [messages]);
   useEffect(() => {
   if (!searchTerm || matches.length === 0) return;
 
@@ -425,32 +436,14 @@ const isVoiceMessage = !!msg.voice_url;
 ) : (
   <>
   {msg.voice_url && (
-    <div
-      style={{
-        minWidth: "220px",
-      }}
-    >
-      <audio
-        controls
-        src={msg.voice_url}
-        style={{
-          width: "100%",
-          height: "42px",
-        }}
-      />
-
-      <div
-        style={{
-          fontSize: "11px",
-          marginTop: "4px",
-          opacity: 0.7,
-          color: isMe ? "rgba(255,255,255,0.7)" : "#7c3aed",
-        }}
-      >
-        🎤 {msg.voice_duration || 0}s
-      </div>
-    </div>
-  )}
+  <div style={{ minWidth: "240px" }}>
+    <VoiceMessageBubble
+      src={msg.voice_url}
+      duration={msg.voice_duration || 0}
+      isMe={isMe}
+    />
+  </div>
+)}
 
   {msg.message && (
     <div className={msg.voice_url ? "mt-2" : ""}>
