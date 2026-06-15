@@ -1,20 +1,12 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-
+import { useSupabase } from "@/components/providers/AuthProvider";
+ 
 export default function useCurrentUser() {
-  const [user, setUser] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-
+  const { supabase, user } = useSupabase();
+ 
   const refresh = async () => {
-    setLoading(true);
-    const { data } = await supabase.auth.getUser();
-    setUser(data.user ?? null);
-    setLoading(false);
+    // user is already kept in sync by AuthProvider
+    // nothing needed here
   };
-
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  return { user, loading, refresh } as const;
+ 
+  return { user, loading: !user, refresh } as const;
 }

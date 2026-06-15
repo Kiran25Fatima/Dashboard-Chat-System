@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Sidebar from "@/components/chat/Sidebar";
 import ChatWindow from "@/components/chat/ChatWindow";
-import NewChatModal from "@/components/chat/NewChatModal";
+import NewChatModal from "@/components/features/NewChatModal";
+import CreateGroupModal from "@/components/features/CreateGroupModal";
+import useConversations from "@/hooks/useConversations";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -13,6 +15,14 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [newConversation, setNewConversation] = useState<any>(null);
+  const [isGroupOpen, setIsGroupOpen] = useState(false);
+  const leaveGroupRef = useRef<((id: string) => void) | null>(null);
+
+
+const onSelectConversation = (conversation: any) => {
+  setSelectedConversation(conversation);
+  setSidebarOpen(false);
+};
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -23,19 +33,20 @@ export default function DashboardPage() {
     <div
       className="h-screen flex flex-col overflow-hidden"
       style={{
-        background: "linear-gradient(135deg, #f8f5ff 0%, #ede9fe 40%, #f3f0ff 70%, #faf8ff 100%)",
+        // background: "linear-gradient(135deg, #f8f5ff 0%, #ede9fe 40%, #f3f0ff 70%, #faf8ff 100%)",
+        background: "#f7f7fb",
         fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
       }}
     >
 
-      <div
+      {/* <div
         className="pointer-events-none fixed -top-30 -left-20 w-105 h-105 rounded-full opacity-30"
         style={{ background: "radial-gradient(circle, #a78bfa 0%, transparent 70%)", filter: "blur(60px)" }}
       />
       <div
         className="pointer-events-none fixed -bottom-25 -right-15 w-85 h-85 rounded-full opacity-20"
         style={{ background: "radial-gradient(circle, #7c3aed 0%, transparent 70%)", filter: "blur(70px)" }}
-      />
+      /> */}
 
       <div
         className="relative flex-1 flex flex-col m-3 md:m-4 rounded-3xl overflow-hidden"
@@ -56,9 +67,13 @@ export default function DashboardPage() {
         <header
           className="shrink-0 h-14 px-5 flex items-center justify-between"
           style={{
-            background: "linear-gradient(90deg, rgba(255,255,255,0.97) 0%, rgba(248,245,255,0.97) 100%)",
-            borderBottom: "1px solid rgba(139,92,246,0.09)",
-            boxShadow: "0 1px 0 rgba(139,92,246,0.06), 0 2px 16px rgba(109,40,217,0.04)",
+            // background: "linear-gradient(90deg, rgba(255,255,255,0.97) 0%, rgba(248,245,255,0.97) 100%)",
+            // borderBottom: "1px solid rgba(139,92,246,0.09)",
+            // boxShadow: "0 1px 0 rgba(139,92,246,0.06), 0 2px 16px rgba(109,40,217,0.04)",
+            background: "rgba(255,255,255,0.9)",
+backdropFilter: "blur(12px)",
+borderBottom: "1px solid rgba(0,0,0,0.06)",
+boxShadow: "none",
           }}
         >
           {/* Brand */}
@@ -189,7 +204,7 @@ export default function DashboardPage() {
         </header>
 
         {/* ── Body ── */}
-        <div className="flex-1 flex min-h-0" style={{ background: "rgba(139,92,246,0.07)" }}>
+        <div className="flex-1 flex min-h-0" style={{ background: "rgba(139,92,246,0.12))" }}>
 
       <aside
   className={`
@@ -200,28 +215,39 @@ w-95 h-full flex flex-col overflow-hidden
     ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
   `}
   style={{
-    background: "rgba(252,250,255,0.98)",
-    borderRight: "1px solid rgba(139,92,246,0.08)",
-    boxShadow: "4px 0 30px rgba(109,40,217,0.08)",
+    // background: "rgba(252,250,255,0.98)",
+    // borderRight: "1px solid rgba(139,92,246,0.08)",
+    // boxShadow: "4px 0 30px rgba(109,40,217,0.08)",
+     background: "transparent", 
+          borderRight: "none",      
+boxShadow: "none",
   }}
 >
             <Sidebar
               selectedConversationId={selectedConversation?.id}
               onOpenNewChat={() => setIsNewChatOpen(true)}
+              onOpenNewGroup={() => setIsGroupOpen(true)}
               newConversation={newConversation}
-              onSelectConversation={(conversation: any) => {
-                setSelectedConversation(conversation);
-                setSidebarOpen(false);
-              }}
+              onSelectConversation={onSelectConversation}
               onUpdateSelectedConversation={(conversation: any) => {
                 setSelectedConversation(conversation);
               }}
+               onLeaveGroupReady={(fn: any) => { leaveGroupRef.current = fn; }}
             />
           </aside>
           <div className="flex-1 min-w-0 flex flex-col bg-white relative" style={{
   boxShadow: "-6px 0 30px rgba(109,40,217,0.04)"
 }}>
-            <ChatWindow selectedConversation={selectedConversation} />
+            <ChatWindow
+  selectedConversation={selectedConversation}
+  onLeaveGroup={(groupId: string) => {
+    leaveGroupRef.current?.(groupId);
+    onSelectConversation(null); // Clears the active chat in UI
+  }}
+  onGroupUpdated={(updatedGroup: any) => {
+    setSelectedConversation(updatedGroup); // update header instantly
+  }}
+/>
           </div>
         </div>
       </div>
@@ -229,13 +255,23 @@ w-95 h-full flex flex-col overflow-hidden
         <NewChatModal
           onClose={() => setIsNewChatOpen(false)}
           onConversationCreated={(conversation:any) => {
-            setSelectedConversation(conversation);
-            setSidebarOpen(false);
+            onSelectConversation(conversation);
             setNewConversation(conversation);
             setIsNewChatOpen(false);
           }}
         />
       )}
+
+      {isGroupOpen && (
+  <CreateGroupModal
+    onClose={() => setIsGroupOpen(false)}
+    onGroupCreated={(group: any) => {
+      onSelectConversation(group);
+      setNewConversation(group);
+      setIsGroupOpen(false);
+    }}
+  />
+)}
     </div>
   );
 }

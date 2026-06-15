@@ -14,7 +14,7 @@ export default function useConversations({ user, loading, selectedConversationId
   const [unreadMap, setUnreadMap] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread" | "online">("all");
-
+  const [groups, setGroups] = useState<any[]>([]);
   const loadConversations = async () => {
     setIsLoading(true);
 
@@ -108,16 +108,92 @@ await supabase
       new Date(a.updated_at || 0).getTime()
   )
 );
-    setUnreadMap(unreadCountByConversation);
+    setUnreadMap((prev: any) => ({ ...prev, ...unreadCountByConversation }));
     setIsLoading(false);
   };
+const loadGroups = async () => {
+  const userId = user?.id ?? null;
+  if (!userId) return;
 
-  useEffect(() => {
-  
-    if (loading) return;
-    loadConversations();
-   
-  }, [loading, user]);
+  const { data: memberRows } = await supabase
+    .from("group_members")
+    .select("group_id, last_read_at")
+    .eq("user_id", userId);
+
+  console.log("MEMBER ROWS:", memberRows); // 👈
+
+  const groupIds = (memberRows || []).map((r: any) => r.group_id);
+  if (groupIds.length === 0) {
+    setGroups([]);
+    return;
+  }
+
+  const lastReadMap: Record<string, string> = {};
+  (memberRows || []).forEach((r: any) => {
+    lastReadMap[r.group_id] = r.last_read_at;
+  });
+
+  console.log("LAST READ MAP:", lastReadMap); // 👈
+
+  const { data: groupData } = await supabase
+    .from("groups")
+    .select("id, name, avatar_url, created_at")
+    .in("id", groupIds);
+
+  const { data: lastGroupMessages } = await supabase
+    .from("messages")
+    .select("group_id, message, created_at, sender_id, file_type")
+    .in("group_id", groupIds)
+    .order("created_at", { ascending: false });
+
+  console.log("GROUP MESSAGES:", lastGroupMessages); // 👈
+
+  const lastGroupMsgMap: any = {};
+  (lastGroupMessages || []).forEach((msg: any) => {
+    if (!lastGroupMsgMap[msg.group_id]) {
+      lastGroupMsgMap[msg.group_id] = msg;
+    }
+  });
+
+  const unreadGroupMap: Record<string, number> = {};
+  (lastGroupMessages || []).forEach((msg: any) => {
+    if (msg.sender_id === userId) return;
+    const lastRead = lastReadMap[msg.group_id];
+    if (!lastRead || new Date(msg.created_at) > new Date(lastRead)) {
+      unreadGroupMap[msg.group_id] = (unreadGroupMap[msg.group_id] || 0) + 1;
+    }
+  });
+
+  console.log("UNREAD GROUP MAP:", unreadGroupMap); // 👈
+
+  const formatted = (groupData || []).map((group: any) => {
+    const lastMsg = lastGroupMsgMap[group.id];
+    return {
+      ...group,
+      isGroup: true,
+      last_message: lastMsg?.message ||
+        (lastMsg?.file_type?.startsWith("image/") ? "🖼️ Photo" : lastMsg ? "📎 Attachment" : ""),
+      updated_at: lastMsg?.created_at || group.created_at,
+    };
+  });
+
+  setGroups(
+    formatted.sort(
+      (a: any, b: any) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    )
+  );
+
+  setUnreadMap((prev: any) => ({ ...prev, ...unreadGroupMap }));
+};
+ useEffect(() => {
+  if (loading) return;
+  const run = async () => {
+    await loadConversations();
+    await loadGroups(); // runs AFTER loadConversations finishes
+  };
+  run();
+}, [loading, user]);
 
   useEffect(() => {
     if (selectedConversationId) {
@@ -186,6 +262,36 @@ await supabase
   );
 });
         }
+     if (msg.group_id) {
+  setGroups((prev) => {
+    // existing group last_message update
+    const updated = prev.map((group) =>
+      group.id === msg.group_id
+        ? {
+            ...group,
+            last_message:
+              msg.message ||
+              (msg.file_type?.startsWith("image/") ? "🖼️ Photo" : "📎 Attachment"),
+            updated_at: msg.created_at,
+          }
+        : group
+    );
+    return [...updated].sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+  });
+
+  // ✅ increment unread if not currently viewing this group
+  if (msg.sender_id !== currentUserId && msg.group_id !== activeConversationId  &&
+  msg.message_type !== "system" // ← skip system messages
+  ) {
+    setUnreadMap((prev : any) => ({
+      ...prev,
+      [msg.group_id]: (prev[msg.group_id] || 0) + 1,
+    }));
+  }
+} 
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
         const msg: any = payload.new;
@@ -205,6 +311,19 @@ await supabase
       );
     });
   }
+
+  if (msg.deleted_at && msg.group_id) {
+  setGroups((prev: any[]) => {
+    const updated = prev.map((group) =>
+      group.id === msg.group_id
+        ? { ...group, last_message: "This message was deleted" }
+        : group
+    );
+    return [...updated].sort(
+      (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+  });
+}
         if (msg.is_read === true) {
           setUnreadMap((prev: any) => ({
             ...prev,
@@ -221,16 +340,162 @@ await supabase
       supabase.removeChannel(messageChannel);
     };
   }, [currentUserId, activeConversationId]);
+
+
+  useEffect(() => {
+  if (!currentUserId) return;
+
+  const groupMemberChannel = supabase
+    .channel("group-membership-changes")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "group_members",
+        filter: `user_id=eq.${currentUserId}`,
+      },
+      async (payload) => {
+        const groupId = payload.new.group_id;
+
+        // fetch the new group's details
+        const { data: group } = await supabase
+          .from("groups")
+          .select("id, name, avatar_url, created_at")
+          .eq("id", groupId)
+          .single();
+
+        if (group) {
+          setGroups((prev) => {
+            // avoid duplicate if creator already added it
+            if (prev.some((g) => g.id === group.id)) return prev;
+            return [
+              {
+                ...group,
+                isGroup: true,
+                last_message: "",
+                updated_at: group.created_at,
+              },
+              ...prev,
+            ];
+          });
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(groupMemberChannel);
+  };
+}, [currentUserId]);
+
+useEffect(() => {
+  if (!currentUserId) return;
+
+  const groupsChannel = supabase
+    .channel("group-updates")
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "groups" },
+      (payload) => {
+        const updated = payload.new;
+        setGroups((prev) =>
+          prev.map((g) =>
+            g.id === updated.id
+              ? { ...g, name: updated.name, avatar_url: updated.avatar_url }
+              : g
+          )
+        );
+      }
+    )
+    .subscribe();
+
+  return () => { supabase.removeChannel(groupsChannel); };
+}, [currentUserId]);
   
 
   const openConversation = (conversation: any) => {
     setActiveConversationId(conversation.id);
     setUnreadMap((prev: any) => ({ ...prev, [conversation.id]: 0 }));
     onSelectConversation(conversation);
+
+    if (conversation.isGroup && currentUserId) {
+    supabase
+      .from("group_members")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("group_id", conversation.id)
+      .eq("user_id", currentUserId)
+      .then(() => {});
+  }
   };
 
+const leaveGroup = async (groupId: string) => {
+  if (!currentUserId) return;
+
+  // 1. get all current members
+  const { data: allMembers } = await supabase
+    .from("group_members")
+    .select("user_id, role")
+    .eq("group_id", groupId);
+
+  if (!allMembers) return;
+
+  // 2. get current user's name for system message
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", currentUserId)
+    .single();
+
+  const userName = profile?.full_name || "Someone";
+
+  // 3. if last member → delete entire group (cascade deletes members + messages)
+  if (allMembers.length === 1) {
+    await supabase.from("groups").delete().eq("id", groupId);
+    setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    return;
+  }
+
+  // 4. insert system message BEFORE leaving (still a member so RLS passes)
+  await supabase.from("messages").insert({
+    group_id: groupId,
+    sender_id: currentUserId,
+    receiver_id: null,
+    message: `${userName} left the group`,
+    message_type: "system",
+    status: "sent",
+    is_read: true,
+  });
+
+  // 5. if current user is the only admin → promote next member before leaving
+  const currentMember = allMembers.find((m: any) => m.user_id === currentUserId);
+  const isCurrentAdmin = currentMember?.role === "admin";
+  const otherAdmins = allMembers.filter(
+    (m: any) => m.user_id !== currentUserId && m.role === "admin"
+  );
+
+  if (isCurrentAdmin && otherAdmins.length === 0) {
+    const nextMember = allMembers.find((m: any) => m.user_id !== currentUserId);
+    if (nextMember) {
+      await supabase
+        .from("group_members")
+        .update({ role: "admin" })
+        .eq("group_id", groupId)
+        .eq("user_id", nextMember.user_id);
+    }
+  }
+
+  // 6. delete current user from group
+  await supabase
+    .from("group_members")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("user_id", currentUserId);
+
+  setGroups((prev) => prev.filter((g) => g.id !== groupId));
+};
   const baseFiltered = conversations.filter((conversation) =>
-    conversation.partner.full_name?.toLowerCase().includes(search.toLowerCase())
+    conversation.partner?.full_name?.toLowerCase().includes(search.toLowerCase())
   );
 
   const filteredConversations = baseFiltered.filter((conversation) => {
@@ -241,20 +506,34 @@ await supabase
     return true;
   });
 
+  const filteredGroups = groups.filter((group) => {
+  if (filter === "unread") return (unreadMap[group.id] || 0) > 0;
+  if (filter === "online") return false; // groups have no online status
+  return true;
+});
+
   // only show empty state when user is confirmed loaded and fetch is done
   const showEmptyState = !loading && !isLoading && filteredConversations.length === 0;
+
+  const addGroup = (group: any) => {
+  setGroups((prev) => [group, ...prev]);
+};
 
   return {
     conversations,
     filteredConversations,
+    filteredGroups,
+    groups,  
     onlineMap,
     unreadMap,
     isLoading,
     showEmptyState,
     openConversation,
+    leaveGroup,
     search,
     setSearch,
     filter,
     setFilter,
+    addGroup,
   };
 }

@@ -11,6 +11,7 @@ export default function MessageInput({
   conversationId,
   senderId,
   receiverId,
+  groupId,
   onMessageSent,
   onTyping,
 }: any) {
@@ -94,21 +95,22 @@ export default function MessageInput({
       }
     }
 
-    const { data: insertedMessage, error: insertError } = await supabase
-      .from("messages")
-      .insert({
-        conversation_id: conversationId,
-        sender_id: senderId,
-        receiver_id: receiverId,
-        message: text || null,
-        status: "sent",
-        is_read: false,
-        file_url: audioBlob ? null : fileUrl,
-        file_name: audioBlob ? null : file?.name || null,
-        file_type: audioBlob ? null : file?.type || null,
-        voice_url: voiceUrl || null,
-        voice_duration: audioBlob ? duration : null,
-      })
+   const { data: insertedMessage, error: insertError } = await supabase
+  .from("messages")
+  .insert({
+    conversation_id: groupId ? null : conversationId,
+    group_id: groupId || null,
+    sender_id: senderId,
+    receiver_id: groupId ? null : receiverId,
+    message: text || null,
+    status: "sent",
+    is_read: false,
+    file_url: audioBlob ? null : fileUrl,
+    file_name: audioBlob ? null : file?.name || null,
+    file_type: audioBlob ? null : file?.type || null,
+    voice_url: voiceUrl || null,
+    voice_duration: audioBlob ? duration : null,
+  })
       .select("id, conversation_id, created_at")
       .single();
 
@@ -118,19 +120,19 @@ export default function MessageInput({
       return;
     }
 
-    await supabase
-  .from("conversations")
-  .update({
-    last_message: audioBlob
-      ? "🎙 Voice message"
-      : file
-      ? file.type.startsWith("image/")
-        ? "🖼 Photo"
-        : "📄 File"
-      : text || "",
-    updated_at: insertedMessage.created_at,
-  })
-  .eq("id", conversationId);
+   if (!groupId) {
+  await supabase
+    .from("conversations")
+    .update({
+      last_message: audioBlob
+        ? "🎙 Voice message"
+        : file
+        ? file.type.startsWith("image/") ? "🖼 Photo" : "📄 File"
+        : text || "",
+      updated_at: insertedMessage.created_at,
+    })
+    .eq("id", conversationId);
+}
 
     setMessage("");
     setFile(null);
@@ -165,8 +167,7 @@ export default function MessageInput({
   const canSend = (!!message.trim() || !!file || !!audioBlob) && !!conversationId && !loading;
 
   return (
-    <div className="px-2 sm:px-4 py-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
-
+<div className="px-0.5 py-1 pb-[calc(env(safe-area-inset-bottom)+4px)]">
       {/* Emoji picker */}
       {showEmoji && (
         <div
@@ -180,8 +181,7 @@ export default function MessageInput({
       )}
 
       {/* Main input container */}
-      <div className="rounded-2xl border border-slate-200 bg-white  focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-100  transition-all duration-200">
-
+<div className="rounded-2xl border border-slate-200 bg-white focus-within:border-violet-500/45 focus-within:ring-4 focus-within:ring-violet-500/5 shadow-sm transition-all duration-200">
         {/* File preview */}
         {file && (
           <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1">
@@ -390,9 +390,9 @@ export default function MessageInput({
       </div>
 
       {/* Hint */}
-      <p className="text-center text-[11px] text-slate-400 mt-1.5 hidden sm:block">
-        Enter to send · Shift+Enter for new line
-      </p>
+      <p className="text-center text-[11px] font-medium tracking-wide text-slate-400/90 mt-2 hidden sm:block">
+  Enter to send · Shift+Enter for new line
+</p>
     </div>
   );
 }

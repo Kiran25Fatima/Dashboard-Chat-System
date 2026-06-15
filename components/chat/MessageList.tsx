@@ -9,19 +9,43 @@ import useCurrentUser from "@/hooks/useCurrentUser";
 import MessageActions from "@/components/chat/MessageActions";
 import VoiceMessageBubble from "@/components/chat/VoiceMessageBubble";
 
+
+const SENDER_COLORS = [
+  "#7c3aed", // purple
+  "#0ea5e9", // sky blue
+  "#10b981", // emerald
+  "#f59e0b", // amber
+  "#ef4444", // red
+  "#ec4899", // pink
+  "#14b8a6", // teal
+  "#f97316", // orange
+  "#6366f1", // indigo
+  "#06b6d4", // cyan
+];
+
+const getSenderColor = (userId: string) => {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length];
+};
+
 export default function MessageList({
   conversationId,
-  
+  groupId,
   searchTerm,
   searchIndex,
   currentUserId,
   setSearchIndex,
   messageRefs,
+   selectedConversation,
 }: any) {
   const [messages, setMessages] = useState<any[]>([]);
  
   
   const [isLoading, setIsLoading] = useState(true);
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
 
 
 
@@ -75,77 +99,112 @@ useEffect(() => {
     await updateQuery;
   };
 
-  const fetchMessages = async () => {
-  if (!conversationId) {
+const fetchMessages = async () => {
+  const id = groupId || conversationId;
+  if (!id) {
     setMessages([]);
     setIsLoading(false);
     return;
   }
 
-  if (prevConversationIdRef.current !== conversationId) {
+  if (prevConversationIdRef.current !== id) {
     setMessages([]);
     setIsLoading(true);
-    prevConversationIdRef.current = conversationId;
+    prevConversationIdRef.current = id;
   }
 
-  const { data } = await supabase
+  const query = supabase
     .from("messages")
     .select("*")
-    .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
+  if (groupId) {
+    query.eq("group_id", groupId);
+  } else {
+    query.eq("conversation_id", conversationId);
+  }
+
+  const { data } = await query;
   setMessages(data || []);
   setIsLoading(false);
+
+  if (groupId && data && data.length > 0) {
+  const senderIds = [...new Set(data.map((m: any) => m.sender_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", senderIds);
+
+  const map: Record<string, string> = {};
+  (profiles || []).forEach((p: any) => { map[p.id] = p.full_name; });
+  setProfileMap(map);
+}
 };
 
   useEffect(() => {
-    fetchMessages();
-  }, [conversationId]);
+  fetchMessages();
+}, [conversationId, groupId]);
 
   useEffect(() => {
     if (!conversationId || !currentUserId) return;
+const channelId = groupId || conversationId;
+const filterKey = groupId ? "group_id" : "conversation_id";
 
-    const channel = supabase
-      .channel(`messages-${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        async (payload) => {
-          const msg = payload.new;
+const channel = supabase
+  .channel(`messages-${channelId}`)
+  .on(
+    "postgres_changes",
+    {
+      event: "INSERT",
+      schema: "public",
+      table: "messages",
+      filter: `${filterKey}=eq.${channelId}`,
+    },
+    async (payload) => {
+      const msg = payload.new;
 
-         if (msg.receiver_id === currentUserId) {
+      // for DMs only: mark seen + play sound for receiver
+      if (!groupId && msg.receiver_id === currentUserId) {
+        notificationSoundRef.current?.play();
+        setMessages((prev) => [...prev, { ...msg, status: "delivered" }]);
+        supabase.from("messages").update({ is_read: true, status: "seen", read_at: new Date().toISOString() })
+          .eq("id", msg.id).then(() => {});
+        return;
+      }
 
-  notificationSoundRef.current?.play();
+      // for groups: play sound for everyone except sender
+      if (groupId && msg.sender_id !== currentUserId) {
+        notificationSoundRef.current?.play();
+      }
 
-  setMessages((prev) => [
-    ...prev,
-    { ...msg, status: "delivered" },
-  ]);
-  supabase
-    .from("messages")
-    .update({ is_read: true, status: "seen", read_at: new Date().toISOString() })
-    .eq("id", msg.id)
-    .then(() => {});
+      setMessages((prev) => [...prev, msg]);
 
-  return;
-}
-
-          setMessages((prev) => [...prev, msg]);
+      if (groupId && msg.sender_id !== currentUserId) {
+  setProfileMap((prev) => {
+    if (prev[msg.sender_id]) return prev;
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("id", msg.sender_id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setProfileMap((p) => ({ ...p, [data.id]: data.full_name }));
         }
-      )
+      });
+    return prev;
+  });
+}
+    }
+  )
       .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
+  "postgres_changes",
+  {
+    event: "UPDATE",
+    schema: "public",
+    table: "messages",
+    filter: `${filterKey}=eq.${channelId}`,
+  },
         (payload) => {
           setMessages((prev) => prev.map(m => m.id === payload.new.id ? payload.new : m));
         }
@@ -155,22 +214,21 @@ useEffect(() => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId, currentUserId]);
+  }, [conversationId, groupId, currentUserId]);
 
 
 useEffect(() => {
-  if (!conversationId || !currentUserId) return;
+  if (!conversationId || !currentUserId || groupId) return;
   const run = async () => {
-    // First: sent → delivered → seen in one shot
     await supabase
       .from("messages")
       .update({ is_read: true, status: "seen", read_at: new Date().toISOString() })
       .eq("conversation_id", conversationId)
       .eq("receiver_id", currentUserId)
-      .eq("is_read", false); // covers both sent and delivered
+      .eq("is_read", false);
   };
   run();
-}, [conversationId, currentUserId]);
+}, [conversationId, groupId, currentUserId]);
 
 const deleteForEveryone = async (messageId: string) => {
   await supabase
@@ -216,71 +274,64 @@ const deleteForEveryone = async (messageId: string) => {
   }
 
   if (messages.length === 0) {
+    const isGroup = !!groupId || selectedConversation?.isGroup;
+    const displayName = isGroup
+      ? selectedConversation?.name || "the group"
+      : selectedConversation?.partner?.full_name || "your contact";
+
     return (
       <div
-        className="h-full flex items-center justify-center px-6"
+        className="h-full flex flex-col items-center justify-center px-8 py-16 text-center select-none"
         style={{
-          background: "linear-gradient(160deg, #fdfcff 0%, #f5f0ff 50%, #faf8ff 100%)",
+          background: "transparent",
         }}
       >
-        <div className="max-w-xs text-center">
-          <div className="relative mx-auto mb-8 w-24 h-24">
-            <div
-              className="absolute inset-0 rounded-3xl opacity-50"
-              style={{
-                background: "radial-gradient(circle, #a78bfa 0%, transparent 70%)",
-                filter: "blur(22px)",
-                transform: "scale(1.5)",
-              }}
-            />
-            <div
-              className="relative w-24 h-24 rounded-3xl flex items-center justify-center"
-              style={{
-                background: "linear-gradient(145deg, #ffffff 0%, #f5f0ff 100%)",
-                boxShadow: "0 0 0 1px rgba(139,92,246,0.12), 0 8px 32px rgba(109,40,217,0.10)",
-              }}
-            >
-              <svg
-                className="w-10 h-10"
-                style={{ color: "#8b5cf6" }}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.6}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
-                />
-              </svg>
-            </div>
-          </div>
-
-          <h2
-            className="text-xl font-bold tracking-tight"
-            style={{ color: "#2e1065", fontFamily: "'DM Sans', sans-serif" }}
+        <div className="relative mb-6">
+          {/* Subtle background glow */}
+          <div
+            className="absolute inset-0 rounded-full blur-2xl opacity-10"
+            style={{
+              background: "radial-gradient(circle, #7c3aed 0%, transparent 70%)",
+              transform: "scale(1.7)",
+            }}
+          />
+          
+          {/* Friendly visual ring - Scaled up */}
+          <div
+            className="relative w-20 h-20 rounded-full flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, rgba(124,58,237,0.02) 0%, rgba(139,92,246,0.06) 100%)",
+              border: "1px solid rgba(139,92,246,0.10)",
+              boxShadow: "0 6px 24px rgba(109,40,217,0.02)",
+            }}
           >
-            No messages yet
-          </h2>
-          <p className="text-sm mt-2.5 leading-relaxed" style={{ color: "#9585b8" }}>
-            Start the conversation by sending your first message.
-          </p>
-
-          <div className="flex items-center justify-center gap-2 mt-8">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="rounded-full"
-                style={{
-                  width: i === 1 ? "8px" : "6px",
-                  height: i === 1 ? "8px" : "6px",
-                  background: i === 1 ? "#8b5cf6" : "#ddd6fe",
-                }}
-              />
-            ))}
+            <span className="text-3xl">👋</span>
           </div>
         </div>
+
+        {/* Title - Scaled up to text-base / text-lg */}
+        <h3
+  className="text-base md:text-lg font-bold mb-2 tracking-tight"
+  style={{ color: "#1e1b4b", letterSpacing: "-0.01em" }}
+>
+  Say hello to {displayName}
+</h3>
+
+        {/* Supporting description - Scaled up to text-sm */}
+        <p
+  className="text-xs sm:text-sm max-w-[320px] leading-relaxed"
+  style={{ color: "#64748b" }}
+>
+          This is the very beginning of your conversation history. Send a message to start the conversation.
+        </p>
+
+        {/* Elegant divider */}
+        <div
+          className="h-px w-16 mt-8 animate-pulse"
+          style={{
+            background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.15), transparent)",
+          }}
+        />
       </div>
     );
   }
@@ -305,6 +356,32 @@ const isVoiceMessage = !!msg.voice_url;
       i === 0 || !isSameDay(msg.created_at, filteredMessages[i - 1].created_at);
 
     const isGrouped = msg.sender_id === prevSenderId && !showDateDivider;
+
+    // system message — render centered and skip normal bubble
+if (msg.message_type === "system") {
+  rendered.push(
+    <div key={msg.id} className="flex items-center gap-3 px-4 py-3">
+      <div className="flex-1 h-px" style={{ background: "rgba(139,92,246,0.10)" }} />
+      <span
+        className="text-[11px] font-medium px-3 py-1.5 rounded-full text-center"
+        style={{
+          color: "#9585b8",
+          background: "rgba(139,92,246,0.06)",
+          border: "1px solid rgba(139,92,246,0.10)",
+          maxWidth: "80%",
+        }}
+      >
+        {msg.message}
+      </span>
+      <div className="flex-1 h-px" style={{ background: "rgba(139,92,246,0.10)" }} />
+    </div>
+  );
+  prevSenderId = msg.sender_id;
+  return;
+}
+
+    const senderName = groupId && !isMe ? (profileMap[msg.sender_id] || "Unknown") : null;
+    const senderColor = groupId && !isMe ? getSenderColor(msg.sender_id) : "#7c3aed";
 
     const isLast =
       i === filteredMessages.length - 1 ||
@@ -351,6 +428,14 @@ const isVoiceMessage = !!msg.voice_url;
   `}
 
 >
+ {senderName && !isGrouped && (
+  <p
+    className="text-[11px] font-semibold mb-1 px-1"
+    style={{ color: senderColor }}
+  >
+    {senderName}
+  </p>
+)}
 <div className="relative w-full">
 {isMe && !msg.deleted_at && (
  <div
@@ -398,8 +483,8 @@ const isVoiceMessage = !!msg.voice_url;
           fontWeight: msg.deleted_at ? 500 : 400,
           borderRadius: isLast ? "20px 20px 6px 20px" : "20px",
           boxShadow: isActiveMatch
-            ? "0 4px 16px rgba(124,58,237,0.28), 0 0 0 3px rgba(139,92,246,0.25)"
-            : "0 4px 16px rgba(124,58,237,0.28), 0 1px 4px rgba(124,58,237,0.15)",
+  ? "0 4px 16px rgba(124,58,237,0.18), 0 0 0 3px rgba(139,92,246,0.20)"
+  : "0 3px 12px rgba(124,58,237,0.12), 0 1px 3px rgba(124,58,237,0.08)",
           outline: "none",
           backdropFilter: msg.deleted_at ? "blur(8px)" : undefined,
         }
@@ -409,8 +494,8 @@ const isVoiceMessage = !!msg.voice_url;
           border: "1px solid rgba(139,92,246,0.12)",
           borderRadius: isLast ? "20px 20px 20px 6px" : "20px",
           boxShadow: isActiveMatch
-            ? "0 2px 12px rgba(109,40,217,0.07), 0 0 0 3px rgba(139,92,246,0.25)"
-            : "0 2px 12px rgba(109,40,217,0.07), 0 1px 3px rgba(109,40,217,0.04)",
+  ? "0 2px 12px rgba(109,40,217,0.06), 0 0 0 3px rgba(139,92,246,0.18)"
+  : "0 2px 10px rgba(109,40,217,0.04), 0 1px 2px rgba(0,0,0,0.02)",
           outline: "none",
           backdropFilter: msg.deleted_at ? "blur(8px)" : undefined,
         }
@@ -607,9 +692,9 @@ style={{ display: "block", maxWidth: "280px", width: "100%" }}
   return (
     <div
       className="flex flex-col min-h-full"
-      style={{
-        background: "linear-gradient(180deg, #fdfcff 0%, #f8f5ff 40%, #fdfcff 100%)",
-      }}
+style={{
+  background: "#FAF9FD", // Solid elegant off-white (prevents scrolling color-shift)
+}}
     >
      <div className="flex flex-col py-1 px-2 md:px-4 lg:px-6">{rendered}</div>
       <div ref={bottomRef} className="h-1 shrink-0" />
