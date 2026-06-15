@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import useCurrentUser from "../../hooks/useCurrentUser";
 import useConversations from "@/hooks/useConversations";
 import SidebarHeader from "@/components/sidebar/SidebarHeader";
@@ -9,7 +9,7 @@ import FilterBar from "@/components/sidebar/FilterBar";
 import ConversationList from "@/components/sidebar/ConversationList";
 
 export default function Sidebar(props: any) {
-  const { onSelectConversation, selectedConversationId, onOpenNewChat, newConversation, onUpdateSelectedConversation } = props;
+  const { onSelectConversation, selectedConversationId, onOpenNewChat, newConversation, onUpdateSelectedConversation, onOpenNewGroup, onLeaveGroupReady } = props;
   const { user, loading } = useCurrentUser();
 
   const {
@@ -21,11 +21,19 @@ export default function Sidebar(props: any) {
     openConversation,
     search,
     setSearch,
-    
+    groups,   
     filter,
     setFilter,
     conversations,
+    leaveGroup,
+    filteredGroups
   } = useConversations({ user, selectedConversationId, newConversation, onSelectConversation, loading });
+
+  useEffect(() => {
+  if (onLeaveGroupReady && leaveGroup) {
+    onLeaveGroupReady(leaveGroup);
+  }
+}, [leaveGroup]);
 
   useEffect(() => {
     if (!selectedConversationId || !onUpdateSelectedConversation) return;
@@ -37,42 +45,44 @@ export default function Sidebar(props: any) {
 
   return (
     <div
-      className="h-full flex flex-col select-none border-r backdrop-blur-xl px-3 bg-[#fbfaff]"
+      className="h-full flex flex-col select-none px-4 py-2"
       style={{
-        background: "linear-gradient(180deg, #fcfbff 0%, #f7f4ff 100%)",
-        borderColor: "rgba(139,92,246,0.08)",
+        background: "linear-gradient(180deg, #FDFDFD 0%, #F9F8FD 100%)",
+        borderRight: "1px solid #E2E8F0", 
         fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
       }}
     >
-      <SidebarHeader onOpenNewChat={onOpenNewChat} />
-      <SidebarSearch
-        value={search}
-        onChange={(e: any) => setSearch(e.target.value)}
-        onClear={() => setSearch("")}
-      />
-
-      <div className="px-0.5 pb-3 space-y-4">
-        <FilterBar filter={filter} onChange={setFilter} />
-        <div className="flex items-center justify-between px-1">
-          <p
-            className="text-[11px] font-bold uppercase tracking-[0.16em]"
-            style={{ color: "#7c3aed" }}
-          >
-            Chats
-          </p>
-        </div>
+      <SidebarHeader onOpenNewChat={onOpenNewChat} onOpenNewGroup={onOpenNewGroup} />
+      
+      <div className="my-3">
+        <SidebarSearch
+          value={search}
+          onChange={(e: any) => setSearch(e.target.value)}
+          onClear={() => setSearch("")}
+        />
       </div>
 
-      <ConversationList
-        isLoading={isLoading}
-        showEmptyState={showEmptyState}
-        hasConversations={conversations.length > 0}
-        filteredConversations={filteredConversations}
-        onlineMap={onlineMap}
-        unreadMap={unreadMap}
-        activeConversationId={selectedConversationId}
-        onOpen={openConversation}
-      />
+      {/* Kept only the FilterBar here, removing the redundant "Chats" text */}
+      <div className="px-0.5 pb-4">
+        <FilterBar filter={filter} onChange={setFilter} />
+      </div>
+
+      <div className="flex-1 flex flex-col min-h-0">
+        <ConversationList
+          isLoading={isLoading}
+          showEmptyState={showEmptyState}
+          hasConversations={conversations.length > 0}
+          filteredConversations={filteredConversations}
+         groups={filteredGroups}
+          onlineMap={onlineMap}
+          unreadMap={unreadMap}
+          activeConversationId={selectedConversationId}
+          onOpen={openConversation}
+            searchQuery={search}
+          activeFilter={filter}
+          
+        />
+      </div>
     </div>
   );
 }

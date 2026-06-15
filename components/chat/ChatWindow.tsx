@@ -11,6 +11,7 @@ import useCurrentUser from "../../hooks/useCurrentUser";
 import usePresence from "@/hooks/usePresence";
 import { X } from "lucide-react";
 import { formatLastSeen } from "@/lib/utils/format";
+import GroupInfoModal from "@/components/features/GroupInfoModal"; 
 
 // ✅ Helper: deduplicate presence entries by user_id (last entry wins)
 const getLatestPerUser = (all: any[]) =>
@@ -21,7 +22,7 @@ const getLatestPerUser = (all: any[]) =>
     }, {})
   ) as any[];
 
-export default function ChatWindow({ selectedConversation }: any) {
+export default function ChatWindow({ selectedConversation,onLeaveGroup,onGroupUpdated  }: any) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -42,11 +43,27 @@ export default function ChatWindow({ selectedConversation }: any) {
   const isPartnerOnline = !!selectedPartnerId && !!onlineMap[selectedPartnerId];
   const hasLastSeen = !!lastSeen;
   const showLastSeen = !isTyping && !isPartnerOnline && hasLastSeen;
-
+  const [showMembers, setShowMembers] = useState(false);
+    const [memberCount, setMemberCount] = useState<number | null>(null);
   // keep local `user` state in sync with hook
   useEffect(() => {
     setUser(currentUser);
   }, [currentUser]);
+
+  useEffect(() => {
+  if (!selectedConversation?.isGroup) {
+    setMemberCount(null);
+    return;
+  }
+
+  supabase
+    .from("group_members")
+    .select("id", { count: "exact" })
+    .eq("group_id", selectedConversation.id)
+    .then(({ count }) => {
+      setMemberCount(count);
+    });
+}, [selectedConversation?.id, selectedConversation?.isGroup]);
 
   useEffect(() => {
     if (!selectedConversation?.id || !user?.id) {
@@ -84,9 +101,8 @@ export default function ChatWindow({ selectedConversation }: any) {
  useEffect(() => {
   const cid = selectedConversation?.id;
   const uid = user?.id;
-  if (!cid || !uid) return;
+  if (!cid || !uid || selectedConversation?.isGroup) return; // skip for groups
 
-  // Step 1: sent → delivered immediately
   supabase
     .from("messages")
     .update({ status: "delivered" })
@@ -95,26 +111,20 @@ export default function ChatWindow({ selectedConversation }: any) {
     .eq("status", "sent")
     .then(() => {});
 
-  // Step 2: delivered → seen after 500ms
   const timer = setTimeout(async () => {
     await supabase
       .from("messages")
-      .update({
-        is_read: true,
-        status: "seen",
-        read_at: new Date().toISOString(),
-      })
+      .update({ is_read: true, status: "seen", read_at: new Date().toISOString() })
       .eq("conversation_id", cid)
       .eq("receiver_id", uid)
       .eq("is_read", false);
   }, 500);
 
   return () => clearTimeout(timer);
-}, [selectedConversation?.id, user?.id]); // ← depends on selectedConversation.id not conversationId state
-
+}, [selectedConversation?.id, user?.id]);
   // ✅ Only ONE channel is created here — shared with MessageInput via broadcastTyping prop
   useEffect(() => {
-    if (!conversationId || !selectedConversation?.partner || !user) return;
+    if (!conversationId || !selectedConversation?.partner || !user || selectedConversation?.isGroup) return;
 
     let channel: any = null;
 
@@ -215,77 +225,115 @@ const prevMatch = () => {
 
   const isPreparing = !!selectedConversation && (!user || loading || conversationId === null);
 
-  if (!selectedConversation) {
+if (!selectedConversation) {
     return (
       <div
-        className="flex-1 flex items-center justify-center px-6"
+        className="flex-1 flex flex-col items-center justify-center px-8"
         style={{
-          background: "linear-gradient(160deg, #fdfcff 0%, #f5f0ff 50%, #faf8ff 100%)",
+          background: "linear-gradient(135deg, #ffffff 0%, #fcfbfe 60%, #f6f4fa 100%)",
+          fontFamily: "'DM Sans', sans-serif",
         }}
       >
-        <div className="max-w-xs text-center">
-          
-          <div className="relative mx-auto mb-8 w-24 h-24">
+        <div className="w-full max-w-115 text-center flex flex-col items-center">
+          {/* Main Visual Container - Scaled Up */}
+          <div className="relative mb-8">
             <div
-              className="absolute inset-0 rounded-3xl opacity-40"
+              className="absolute inset-0 rounded-full blur-3xl opacity-25"
               style={{
-                background: "radial-gradient(circle, #a78bfa 0%, transparent 70%)",
-                filter: "blur(20px)",
-                transform: "scale(1.4)",
+                background: "radial-gradient(circle, #7c3aed 0%, transparent 70%)",
+                transform: "scale(1.6)",
               }}
             />
             <div
-              className="relative w-24 h-24 rounded-3xl flex items-center justify-center"
+              className="relative w-20 h-20 rounded-3xl flex items-center justify-center"
               style={{
-                background: "linear-gradient(145deg, #ffffff 0%, #f5f0ff 100%)",
-                boxShadow: "0 0 0 1px rgba(139,92,246,0.12), 0 8px 32px rgba(109,40,217,0.10)",
+                background: "linear-gradient(135deg, rgba(124,58,237,0.04) 0%, rgba(139,92,246,0.08) 100%)",
+                border: "1px solid rgba(139,92,246,0.12)",
+                boxShadow: "0 8px 30px rgba(109,40,217,0.04)",
               }}
             >
               <svg
                 className="w-10 h-10"
-                style={{ color: "#8b5cf6" }}
+                style={{ color: "#7c3aed" }}
                 fill="none"
-                stroke="currentColor"
-                strokeWidth={1.6}
                 viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
+                  d="M20.25 8.511c.084.29.125.597.125.913 0 3.73-4.03 6.75-9 6.75a10.02 10.02 0 0 1-2.245-.254c-.554.341-1.18.57-1.848.675a.75.75 0 0 1-.865-.67 4.28 4.28 0 0 0 .56-1.573c-.092-.12-.18-.246-.264-.378C5.231 12.35 4.5 10.99 4.5 9.5c0-3.73 4.03-6.75 9-6.75 4.312 0 7.9 2.296 8.75 5.761Z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M18.75 13.5c0 3.73-4.03 6.75-9 6.75a10.02 10.02 0 0 1-2.245-.254c-.554.341-1.18.57-1.848.675a.75.75 0 0 1-.865-.67 4.28 4.28 0 0 0 .56-1.573c-.092-.12-.18-.246-.264-.378C3.231 16.35 2.5 14.99 2.5 13.5c0-2.31 1.55-4.32 3.84-5.462"
                 />
               </svg>
             </div>
           </div>
 
+          {/* Title - Scaled to text-xl */}
           <h2
-            className="text-xl font-bold tracking-tight"
-            style={{ color: "#2e1065", fontFamily: "'DM Sans', sans-serif" }}
+            className="text-xl md:text-2xl font-bold tracking-tight mb-3"
+            style={{ color: "#3b0764", letterSpacing: "-0.02em" }}
           >
-            Your Messages
+            Welcome to your workspace
           </h2>
-          <p className="text-sm mt-2.5 leading-relaxed" style={{ color: "#9585b8" }}>
-            Select a conversation from the sidebar to start chatting.
+
+          {/* Supporting Text - Scaled to text-base */}
+          <p className="text-sm md:text-base leading-relaxed mb-8" style={{ color: "#7c728a" }}>
+            Select an active chat from the sidebar panel or search for an associate to begin sending messages.
           </p>
 
-      
-          <div className="flex items-center justify-center gap-2 mt-8">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="w-1.5 h-1.5 rounded-full"
-                style={{
-                  background: i === 1 ? "#8b5cf6" : "#ddd6fe",
-                  transform: i === 1 ? "scale(1.3)" : "scale(1)",
-                }}
-              />
-            ))}
+          {/* Quick Actions Guide - Scaled Up text */}
+          <div
+            className="w-full rounded-2xl p-5 text-left border"
+            style={{
+              background: "rgba(255, 255, 255, 0.5)",
+              borderColor: "rgba(139, 92, 246, 0.08)",
+            }}
+          >
+            <span
+              className="text-xs font-bold tracking-wider uppercase block mb-3.5"
+              style={{ color: "#9a82db" }}
+            >
+              Quick Navigation Tips
+            </span>
+            <ul className="space-y-3.5 text-sm" style={{ color: "#5c526d" }}>
+              <li className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: "#a78bfa" }} />
+                <span>
+                  Click{" "}
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold mx-0.5"
+                    style={{ background: "#ede9fe", color: "#6d28d9" }}
+                  >
+                    + New Chat
+                  </span>{" "}
+                  to find contacts.
+                </span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: "#a78bfa" }} />
+                <span>
+                  Click{" "}
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold mx-0.5"
+                    style={{ background: "#ede9fe", color: "#6d28d9" }}
+                  >
+                    New Group
+                  </span>{" "}
+                  to start collaborative channels.
+                </span>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
     );
   }
-
   if (isPreparing) {
     return <ChatWindowSkeleton />;
   }
@@ -304,31 +352,47 @@ py-3
 flex items-center
 gap-3
 "
-        style={{
-          background: "linear-gradient(90deg, rgba(255,255,255,0.98) 0%, rgba(250,247,255,0.98) 100%)",
-          borderBottom: "1px solid rgba(139,92,246,0.09)",
-          boxShadow: "0 2px 16px rgba(109,40,217,0.05)",
-        }}
+       style={{
+  background: "#ffffff",
+  borderBottom: "1px solid #f1f5f9", // Crisp, clean border separation
+  boxShadow: "0 2px 12px rgba(15, 23, 42, 0.03)", // Soft, modern neutral shadow
+}}
       >
-        <div className="
-flex items-center
-gap-2.5 sm:gap-3.5
-min-w-0
-flex-1
-overflow-hidden
-">
+    <button
+  onClick={() => { if (selectedConversation?.isGroup) setShowMembers(true); }}
+  className={`flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1 overflow-hidden text-left transition-opacity
+    ${selectedConversation?.isGroup ? "cursor-pointer hover:opacity-75" : "cursor-default"}`}
+>
           {/* Avatar */}
           <div className="relative shrink-0">
-            <Avatar name={selectedConversation?.partner?.full_name} size={40} />
+       {selectedConversation?.isGroup && selectedConversation?.avatar_url ? (
+  <img
+    src={selectedConversation.avatar_url}
+    alt="group"
+    className="w-10 h-10 rounded-full object-cover"
+    style={{ boxShadow: "0 2px 8px rgba(124,58,237,0.20)" }}
+  />
+) : (
+  <Avatar
+    name={selectedConversation?.isGroup ? selectedConversation?.name : selectedConversation?.partner?.full_name}
+    size={40}
+  />
+)}
           </div>
 
        
           <div className="min-w-0 flex-1 overflow-hidden">
-           <h2 className="text-sm font-bold truncate">
-  {selectedConversation?.partner?.full_name}
+         <h2 className="text-sm font-bold truncate">
+  {selectedConversation?.isGroup
+    ? selectedConversation?.name
+    : selectedConversation?.partner?.full_name}
 </h2>
 
-{isTyping ? (
+{selectedConversation?.isGroup ? (
+  <p className="text-xs font-medium" style={{ color: "#b8acd6" }}>
+  {memberCount !== null ? `${memberCount} members` : "Group"}
+</p>
+) : isTyping ? (
   <p className="text-xs font-medium animate-pulse" style={{ color: "#8b5cf6" }}>
     Typing…
   </p>
@@ -342,7 +406,11 @@ overflow-hidden
   </p>
 ) : null}
           </div>
-        </div>
+        </button>
+
+  
+
+
 
  {isSearchOpen ? (
   <div
@@ -478,51 +546,68 @@ shrink-0
       </div>
 
   
-      <div
-  className="flex-1 min-h-0 overflow-y-auto px-2 pb-5 "
-  style={{
-    background: "linear-gradient(180deg, #fdfcff 0%, #f9f7ff 60%, #ffffff 100%)",
-  }}
->
-        <MessageList
+ <div
+  className="flex-1 min-h-0 overflow-y-auto px-2 pb-5"
+style={{
+  background: "#FAF9FD", // Solid elegant off-white (prevents scrolling color-shift)
+}}
+><MessageList
+  selectedConversation={selectedConversation}
   conversationId={conversationId!}
-   currentUserId={currentUser?.id} 
+  groupId={selectedConversation?.isGroup ? selectedConversation?.id : null}
+  currentUserId={currentUser?.id}
   searchTerm={searchTerm}
   searchIndex={searchIndex}
   setSearchIndex={setSearchIndex}
   messageRefs={messageRefs}
-   hasMessages={!!selectedConversation?.last_message} 
+  hasMessages={!!selectedConversation?.last_message}
 />
       </div>
 
      
-      {user && (
-        <div
-  className="shrink-0 px-3 md:px-4 py-3"
-  style={{
-    background: "rgba(255,255,255,0.85)",
-    backdropFilter: "blur(12px)",
-    borderTop: "1px solid rgba(139,92,246,0.10)",
-    boxShadow: "0 -10px 30px rgba(109,40,217,0.06)",
-  }}
->
+     {/* Updated Bottom Input Panel Wrapper */}
+{user && (
   <div
-  className="h-px w-full"
-  style={{
-    background:
-      "linear-gradient(90deg, transparent, rgba(139,92,246,0.15), transparent)",
-  }}
-/>
-          <MessageInput
-            conversationId={conversationId}
-            senderId={user.id}
-            receiverId={selectedConversation?.partner?.id}
-            onMessageSent={() => {}}
-            onTyping={broadcastTyping}
-          />
-        </div>
-      )}
+    className="shrink-0 px-4 md:px-6 pb-5 pt-3"
+    style={{
+      background: "rgba(255, 255, 255, 0.90)",
+      backdropFilter: "blur(12px)",
+      borderTop: "1px solid #f1f5f9", // Clean, soft slate separator
+      boxShadow: "0 -8px 24px rgba(15, 23, 42, 0.02)", // Neutral, soft upward shadow
+    }}
+  >
+    {/* Clean horizontal divider line */}
+    <div
+      className="h-px w-full mb-3"
+      style={{
+        background: "linear-gradient(90deg, transparent, rgba(139,92,246,0.12), transparent)",
+      }}
+    />
+
+    <MessageInput
+      conversationId={conversationId}
+      senderId={user.id}
+      receiverId={selectedConversation?.isGroup ? null : selectedConversation?.partner?.id}
+      groupId={selectedConversation?.isGroup ? selectedConversation?.id : null}
+      onMessageSent={() => {}}
+      onTyping={broadcastTyping}
+    />
+  </div>
+)}
+{showMembers && selectedConversation?.isGroup && (
+  <GroupInfoModal
+    group={selectedConversation}
+    onClose={() => setShowMembers(false)}
+    onGroupUpdated={(updatedGroup: any) => {
+      onGroupUpdated?.(updatedGroup);
+    }}
+    onLeaveGroup={(groupId: string) => {
+      setShowMembers(false);
+      onLeaveGroup?.(groupId);
+    }}
+  />
+)}
+
     </div>
   );
-
 }
