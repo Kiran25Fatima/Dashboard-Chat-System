@@ -75,7 +75,7 @@ const formattedConversations = (conversationsData || []).map((conversation: any)
     ...conversation,
 
   
-    updated_at: lastMsg?.created_at || conversation.created_at,
+   updated_at: lastMsg?.created_at || conversation.updated_at || conversation.created_at,
 
     last_message: lastMsg?.message || conversation.last_message || "",
 
@@ -247,9 +247,11 @@ const loadGroups = async () => {
     conversation.id === msg.conversation_id
       ? {
           ...conversation,
-        last_message: msg.message || 
-  (msg.file_type?.startsWith("image/") ? "🖼️ Photo" : 
-   msg.file_name ? `📎 ${msg.file_name}` : "📎 Attachment"),
+        last_message: msg.voice_url
+  ? "🎙️ Voice message"
+  : msg.message ||
+    (msg.file_type?.startsWith("image/") ? "🖼️ Photo" :
+     msg.file_name ? `📎 ${msg.file_name}` : "📎 Attachment"),
           updated_at: msg.created_at,
         }
       : conversation
@@ -269,9 +271,11 @@ const loadGroups = async () => {
       group.id === msg.group_id
         ? {
             ...group,
-            last_message:
-              msg.message ||
-              (msg.file_type?.startsWith("image/") ? "🖼️ Photo" : "📎 Attachment"),
+            last_message: msg.voice_url
+  ? "🎙️ Voice message"
+  : msg.message ||
+    (msg.file_type?.startsWith("image/") ? "🖼️ Photo" :
+     msg.file_name ? `📎 ${msg.file_name}` : "📎 Attachment"),
             updated_at: msg.created_at,
           }
         : group
@@ -340,6 +344,8 @@ const loadGroups = async () => {
       supabase.removeChannel(messageChannel);
     };
   }, [currentUserId, activeConversationId]);
+
+  
 
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef,useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Sidebar from "@/components/chat/Sidebar";
@@ -8,6 +8,8 @@ import ChatWindow from "@/components/chat/ChatWindow";
 import NewChatModal from "@/components/features/NewChatModal";
 import CreateGroupModal from "@/components/features/CreateGroupModal";
 import useConversations from "@/hooks/useConversations";
+import useCurrentUser from "@/hooks/useCurrentUser";
+
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -17,6 +19,13 @@ export default function DashboardPage() {
   const [newConversation, setNewConversation] = useState<any>(null);
   const [isGroupOpen, setIsGroupOpen] = useState(false);
   const leaveGroupRef = useRef<((id: string) => void) | null>(null);
+
+  const { user } = useCurrentUser();
+const [notifications, setNotifications] = useState<any[]>([]);
+const [showNotifications, setShowNotifications] = useState(false);
+const bellRef = useRef<HTMLDivElement>(null);
+
+
 
 
 const onSelectConversation = (conversation: any) => {
@@ -28,6 +37,35 @@ const onSelectConversation = (conversation: any) => {
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  useEffect(() => {
+  if (!user?.id) return;
+
+  // Fetch existing notifications
+  supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("is_read", false)
+    .order("created_at", { ascending: false })
+    .then(({ data }) => {
+      if (data) setNotifications(data);
+    });
+
+  const channel = supabase
+    .channel(`notifications-${user.id}`)
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "notifications",
+      filter: `user_id=eq.${user.id}`,
+    }, (payload) => {
+      setNotifications((prev) => [payload.new, ...prev]);
+    })
+    .subscribe();
+
+  return () => { supabase.removeChannel(channel); };
+}, [user]);
 
   return (
     <div
@@ -170,6 +208,26 @@ boxShadow: "none",
   </div>
 </button>
 
+{/* Bell Icon */}
+<div className="relative" ref={bellRef}>
+  <button
+    onClick={() =>{console.log("bell clicked", showNotifications); setShowNotifications(!showNotifications)}}
+    className="relative w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150"
+    style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.12)" }}
+  >
+    <svg className="w-4 h-4" style={{ color: "#7c3aed" }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+    </svg>
+    {notifications.length > 0 && (
+      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+        {notifications.length}
+      </span>
+    )}
+  </button>
+
+  
+</div>
+
         <button
   onClick={logout}
   className="group flex items-center gap-2.5 px-3 py-1.5 rounded-xl cursor-pointer transition-all duration-200
@@ -202,6 +260,52 @@ boxShadow: "none",
 </button>
           </div>
         </header>
+
+        {/* Dropdown */}
+  {showNotifications && (
+    <div
+      className="absolute right-5 top-16 w-80 rounded-2xl overflow-hidden z-50"
+      style={{
+        background: "white",
+        border: "1px solid rgba(139,92,246,0.12)",
+        boxShadow: "0 8px 32px rgba(109,40,217,0.12)",
+      }}
+    >
+      <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center">
+        <span className="text-sm font-bold text-slate-800">Notifications</span>
+        {notifications.length > 0 && (
+          <button
+            onClick={async () => {
+              await supabase
+                .from("notifications")
+                .update({ is_read: true })
+                .eq("user_id", user?.id)
+                .eq("is_read", false);
+              setNotifications([]);
+            }}
+            className="text-xs text-indigo-600 font-semibold hover:underline"
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
+
+      <div className="max-h-72 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-6">No new notifications</p>
+        ) : (
+          notifications.map((n) => (
+            <div key={n.id} className="px-4 py-3 border-b border-slate-50 hover:bg-slate-50">
+              <p className="text-xs font-medium text-slate-700">{n.message}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {new Date(n.created_at).toLocaleTimeString()}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )}
 
         {/* ── Body ── */}
         <div className="flex-1 flex min-h-0" style={{ background: "rgba(139,92,246,0.12))" }}>
