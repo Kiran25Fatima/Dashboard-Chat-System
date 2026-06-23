@@ -53,10 +53,10 @@ export default function useConversations({ user, loading, selectedConversationId
       .map((conv: any) => (conv.user1_id === userId ? conv.user2_id : conv.user1_id))
       .filter(Boolean);
 
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", partnerIds.length > 0 ? partnerIds : [""]);
+   const { data: profileData } = await supabase
+  .from("profiles")
+  .select("id, full_name, avatar_url")
+  .in("id", partnerIds.length > 0 ? partnerIds : [""]);
 
     const profileMap = Object.fromEntries(
       (profileData || []).map((profile: any) => [profile.id, profile])
@@ -82,6 +82,7 @@ const formattedConversations = (conversationsData || []).map((conversation: any)
     partner: {
       id: partnerId,
       full_name: profile?.full_name || "Unknown",
+      avatar_url: profile?.avatar_url || null,
     },
   };
 });
@@ -120,7 +121,7 @@ const loadGroups = async () => {
     .select("group_id, last_read_at")
     .eq("user_id", userId);
 
-  console.log("MEMBER ROWS:", memberRows); // 👈
+  
 
   const groupIds = (memberRows || []).map((r: any) => r.group_id);
   if (groupIds.length === 0) {
@@ -133,7 +134,7 @@ const loadGroups = async () => {
     lastReadMap[r.group_id] = r.last_read_at;
   });
 
-  console.log("LAST READ MAP:", lastReadMap); // 👈
+  
 
   const { data: groupData } = await supabase
     .from("groups")
@@ -146,7 +147,7 @@ const loadGroups = async () => {
     .in("group_id", groupIds)
     .order("created_at", { ascending: false });
 
-  console.log("GROUP MESSAGES:", lastGroupMessages); // 👈
+  
 
   const lastGroupMsgMap: any = {};
   (lastGroupMessages || []).forEach((msg: any) => {
@@ -164,7 +165,6 @@ const loadGroups = async () => {
     }
   });
 
-  console.log("UNREAD GROUP MAP:", unreadGroupMap); // 👈
 
   const formatted = (groupData || []).map((group: any) => {
     const lastMsg = lastGroupMsgMap[group.id];

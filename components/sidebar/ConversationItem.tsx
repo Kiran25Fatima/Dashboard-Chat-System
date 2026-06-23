@@ -35,25 +35,25 @@ export default function ConversationItem({ conversation, isActive, isOnline, unr
       )}
 
       <div className="relative shrink-0">
-        {conversation.isGroup && conversation.avatar_url ? (
-  <img
-    src={conversation.avatar_url}
-    alt={conversation.name}
-    className="w-12 h-12 rounded-full object-cover"
-    style={{
-      boxShadow: isActive ? "0 4px 12px rgba(124,58,237,0.30)" : "0 2px 8px rgba(124,58,237,0.15)",
-    }}
-  />
-) : (
-  <Avatar
-    name={conversation.isGroup ? conversation.name : conversation.partner.full_name}
-    size={48}
-    style={{
-      background: "linear-gradient(135deg, #7c3aed, #a78bfa)",
-      boxShadow: isActive ? "0 4px 12px rgba(124,58,237,0.30)" : "0 2px 8px rgba(124,58,237,0.15)",
-    }}
-  />
-)}
+      {(conversation.isGroup && conversation.avatar_url) || (!conversation.isGroup && conversation.partner?.avatar_url) ? (
+      <img
+        src={conversation.isGroup ? conversation.avatar_url : conversation.partner.avatar_url}
+        alt={conversation.isGroup ? conversation.name : conversation.partner.full_name}
+        className="w-12 h-12 rounded-full object-cover"
+        style={{
+          boxShadow: isActive ? "0 4px 12px rgba(124,58,237,0.30)" : "0 2px 8px rgba(124,58,237,0.15)",
+        }}
+      />
+      ) : (
+      <Avatar
+        name={conversation.isGroup ? conversation.name : conversation.partner.full_name}
+        size={48}
+        style={{
+          background: "linear-gradient(135deg, #7c3aed, #a78bfa)",
+          boxShadow: isActive ? "0 4px 12px rgba(124,58,237,0.30)" : "0 2px 8px rgba(124,58,237,0.15)",
+        }}
+      />
+      )}
         {!conversation.isGroup && (
           <span
             className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white"

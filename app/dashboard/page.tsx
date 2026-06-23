@@ -9,6 +9,7 @@ import NewChatModal from "@/components/features/NewChatModal";
 import CreateGroupModal from "@/components/features/CreateGroupModal";
 import useConversations from "@/hooks/useConversations";
 import useCurrentUser from "@/hooks/useCurrentUser";
+import ProfileModal from "@/components/features/ProfileModal";
 
 
 export default function DashboardPage() {
@@ -19,6 +20,7 @@ export default function DashboardPage() {
   const [newConversation, setNewConversation] = useState<any>(null);
   const [isGroupOpen, setIsGroupOpen] = useState(false);
   const leaveGroupRef = useRef<((id: string) => void) | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const { user } = useCurrentUser();
 const [notifications, setNotifications] = useState<any[]>([]);
@@ -228,7 +230,7 @@ boxShadow: "none",
   
 </div>
 
-        <button
+        {/* <button
   onClick={logout}
   className="group flex items-center gap-2.5 px-3 py-1.5 rounded-xl cursor-pointer transition-all duration-200
              hover:-translate-y-px
@@ -257,7 +259,7 @@ boxShadow: "none",
   <span className="text-xs font-bold text-[#6d28d9] group-hover:text-[#5b21b6] transition-colors">
     Logout
   </span>
-</button>
+</button> */}
           </div>
         </header>
 
@@ -337,6 +339,7 @@ boxShadow: "none",
                 setSelectedConversation(conversation);
               }}
                onLeaveGroupReady={(fn: any) => { leaveGroupRef.current = fn; }}
+               onOpenProfile={() => setIsProfileOpen(true)}
             />
           </aside>
           <div className="flex-1 min-w-0 flex flex-col bg-white relative" style={{
@@ -374,6 +377,12 @@ boxShadow: "none",
       setNewConversation(group);
       setIsGroupOpen(false);
     }}
+  />
+)}
+{isProfileOpen && (
+  <ProfileModal
+    user={user}
+    onClose={() => setIsProfileOpen(false)}
   />
 )}
     </div>
