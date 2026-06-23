@@ -34,36 +34,53 @@ export default function SignupForm() {
     return null;
   };
 
-  const handleSignup = async () => {
-    setError("");
-    const err = validate();
-    if (err) return setError(err);
+const handleSignup = async () => {
+  setError("");
+  const err = validate();
+  if (err) return setError(err);
 
-    setLoading(true);
+  setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+  // Check if invite token in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteToken = urlParams.get("invite");
+
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    setLoading(false);
+    return setError(error.message);
+  }
+
+  if (data.user) {
+    // Insert profile
+    await supabase.from("profiles").insert({
+      id: data.user.id,
+      first_name: firstName,
+      last_name: lastName,
+      full_name: `${firstName} ${lastName}`,
+      phone: phone || null,
+      email: email,
     });
 
-    if (error) {
-      setLoading(false);
-      return setError(error.message);
-    }
-
-    if (data.user) {
-      await supabase.from("profiles").insert({
-        id: data.user.id,
-        first_name: firstName,
-        last_name: lastName,
-        full_name: `${firstName} ${lastName}`,
-        phone: phone || null,
+    // If invited — process via API route (service role use hoga)
+    if (inviteToken) {
+      await fetch("/api/process-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: inviteToken,
+          newUserId: data.user.id,
+          firstName,
+          lastName,
+        }),
       });
     }
+  }
 
-    setLoading(false);
-    router.push("/dashboard");
-  };
+  setLoading(false);
+  router.push("/dashboard");
+};
 
   return (
     <div className="min-h-screen flex bg-linear-to-br from-slate-50 via-indigo-50/40 to-purple-100/40 font-sans selection:bg-purple-100 selection:text-purple-900">

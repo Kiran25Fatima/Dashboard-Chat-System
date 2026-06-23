@@ -178,7 +178,7 @@ await supabase.from("messages").insert({
             placeholder="Group name..."
             value={groupName}
             onChange={(e) => { setGroupName(e.target.value); setError(""); }}
-            className="w-full h-10 rounded-xl border border-slate-200 bg-[#f8fafc] px-4 outline-none transition-all duration-200 placeholder:text-slate-400 text-[13px] focus:border-violet-500/40 focus:ring-4 focus:ring-violet-500/[0.05] text-slate-800"
+            className="w-full h-10 rounded-xl border border-slate-200 bg-[#f8fafc] px-4 outline-none transition-all duration-200 placeholder:text-slate-400 text-[13px] focus:border-violet-500/40 focus:ring-4 focus:ring-violet-500/5 text-slate-800"
           />
         </div>
 
@@ -245,7 +245,7 @@ await supabase.from("messages").insert({
                     w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all duration-150 cursor-pointer text-left
                     ${
                       active
-                        ? "bg-gradient-to-br from-violet-500/[0.04] to-violet-500/[0.08] border-violet-500/20"
+                        ? "bg-linear-to-br from-violet-500/4 to-violet-500/8 border-violet-500/20"
                         : "bg-white border-slate-100 hover:bg-slate-50/50"
                     }
                   `}
