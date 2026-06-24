@@ -17,8 +17,8 @@ export default function SidebarHeader({ onOpenNewChat, onOpenNewGroup }: any) {
           New Chat
         </button>
 
-        {/* Secondary Action Button: New Group */}
-        <button
+        {/* Secondary Action Button: New Group, Temporarily disabled — group chat feature paused */}
+        {/* <button
           type="button"
           onClick={onOpenNewGroup}
           className="flex-1 flex items-center justify-center gap-1.5 text-[11.5px] font-semibold h-9 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98] text-slate-600 shadow-sm transition-all duration-200 cursor-pointer"
@@ -31,7 +31,7 @@ export default function SidebarHeader({ onOpenNewChat, onOpenNewGroup }: any) {
             />
           </svg>
           New Group
-        </button>
+        </button> */}
       </div>
     </div>
   );

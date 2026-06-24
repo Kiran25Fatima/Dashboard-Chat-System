@@ -76,7 +76,7 @@ export default function ConversationList({
                 </div>
               </div>
             )}
-
+         {/* Groups section temporarily disabled — group chat feature paused
             {groups.length > 0 && (
               <div className="space-y-1.5 pt-1">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] px-2.5 pb-1 text-slate-400/90">
@@ -96,8 +96,10 @@ export default function ConversationList({
                 </div>
               </div>
             )}
+               */}
           </div>
         )}
+
       </div>
     </>
   );

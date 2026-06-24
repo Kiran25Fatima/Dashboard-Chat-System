@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, Search } from "lucide-react";
 import Skeleton from "@/components/ui/Skeleton";
 import SearchInput from "../ui/SearchInput";
 import useCurrentUser from "../../hooks/useCurrentUser";
@@ -10,13 +10,19 @@ import Avatar from "../ui/Avatar";
 import { useSupabase } from "../providers/AuthProvider";
 
 export default function CreateGroupModal({ onClose, onGroupCreated }: any) {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]); // existing conversation partners only
   const [search, setSearch] = useState("");
   const [groupName, setGroupName] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
+
+  // 🆕 Email search states
+  const [emailSearch, setEmailSearch] = useState("");
+  const [emailResult, setEmailResult] = useState<any | null>(null);
+  const [isEmailSearching, setIsEmailSearching] = useState(false);
+  const [emailSearched, setEmailSearched] = useState(false);
 
   const groupNameRef = useRef<HTMLInputElement | null>(null);
   const { user } = useCurrentUser();
@@ -27,22 +33,41 @@ export default function CreateGroupModal({ onClose, onGroupCreated }: any) {
     groupNameRef.current?.focus();
   }, []);
 
+  // 🆕 Load only existing conversation partners (not all users)
   useEffect(() => {
-    const loadUsers = async () => {
+    const loadConversationPartners = async () => {
       setIsLoading(true);
       const userId = user?.id ?? null;
       if (!userId) return;
 
+      const { data: conversations } = await supabase
+        .from("conversations")
+        .select("user1_id, user2_id")
+        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+
+      if (!conversations || conversations.length === 0) {
+        setUsers([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Get the "other" user id from each conversation
+      const partnerIds = conversations.map((c) =>
+        c.user1_id === userId ? c.user2_id : c.user1_id
+      );
+
+      const uniqueIds = [...new Set(partnerIds)];
+
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, full_name")
-        .neq("id", userId);
+        .select("id, full_name, email")
+        .in("id", uniqueIds);
 
       setUsers(profiles || []);
       setIsLoading(false);
     };
 
-    loadUsers();
+    loadConversationPartners();
   }, [user]);
 
   const filteredUsers = users.filter((u) =>
@@ -59,6 +84,36 @@ export default function CreateGroupModal({ onClose, onGroupCreated }: any) {
 
   const isSelected = (u: any) => selectedUsers.some((s) => s.id === u.id);
 
+  // 🆕 Email search handler — for users NOT in existing conversations
+  const handleEmailSearch = async () => {
+    if (!emailSearch.trim() || !emailSearch.includes("@")) return;
+
+    setIsEmailSearching(true);
+    setEmailSearched(false);
+    setEmailResult(null);
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("email", emailSearch.trim().toLowerCase())
+      .neq("id", user?.id)
+      .maybeSingle();
+
+    setEmailResult(data || null);
+    setEmailSearched(true);
+    setIsEmailSearching(false);
+  };
+
+  const addEmailUserToSelection = () => {
+    if (!emailResult) return;
+    if (!isSelected(emailResult)) {
+      setSelectedUsers((prev) => [...prev, emailResult]);
+    }
+    setEmailSearch("");
+    setEmailResult(null);
+    setEmailSearched(false);
+  };
+
   const createGroup = async () => {
     if (!groupName.trim()) { setError("Please enter a group name."); return; }
     if (selectedUsers.length < 2) { setError("Add at least 2 members."); return; }
@@ -68,7 +123,6 @@ export default function CreateGroupModal({ onClose, onGroupCreated }: any) {
     setError("");
 
     try {
-      // 1. Create group
       const { data: group, error: groupError } = await supabase
         .from("groups")
         .insert({ name: groupName.trim(), created_by: user.id })
@@ -78,7 +132,6 @@ export default function CreateGroupModal({ onClose, onGroupCreated }: any) {
       if (groupError) throw groupError;
       if (!group) throw new Error("Group creation failed");
 
-      // 2. Insert members (creator as admin + selected users as members)
       const members = [
         { user_id: user.id, role: "admin" },
         ...selectedUsers.map((u) => ({ user_id: u.id, role: "member" })),
@@ -90,34 +143,34 @@ export default function CreateGroupModal({ onClose, onGroupCreated }: any) {
       });
 
       if (membersError) throw membersError;
-      // fetch creator's name
-const { data: profile } = await supabase
-  .from("profiles")
-  .select("full_name")
-  .eq("id", user.id)
-  .single();
 
-const userName = profile?.full_name || "Someone";
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
 
-// insert system message
-await supabase.from("messages").insert({
-  group_id: group.id,
-  sender_id: user.id,
-  receiver_id: null,
-  message: `${userName} created the group`,
-  message_type: "system",
-  status: "sent",
-  is_read: true,
-});
-const addedNames = selectedUsers.map((u: any) => u.full_name).join(", ");
-await supabase.from("messages").insert({
-  group_id: group.id,
-  sender_id: user.id,
-  message: `${userName} added ${addedNames}`,
-  message_type: "system",
-  status: "sent",
-  is_read: true,
-});
+      const userName = profile?.full_name || "Someone";
+
+      await supabase.from("messages").insert({
+        group_id: group.id,
+        sender_id: user.id,
+        receiver_id: null,
+        message: `${userName} created the group`,
+        message_type: "system",
+        status: "sent",
+        is_read: true,
+      });
+
+      const addedNames = selectedUsers.map((u: any) => u.full_name).join(", ");
+      await supabase.from("messages").insert({
+        group_id: group.id,
+        sender_id: user.id,
+        message: `${userName} added ${addedNames}`,
+        message_type: "system",
+        status: "sent",
+        is_read: true,
+      });
 
       onGroupCreated({ ...group, isGroup: true, last_message: "", updated_at: group.created_at });
       onClose();
@@ -128,7 +181,6 @@ await supabase.from("messages").insert({
       setIsCreating(false);
     }
   };
-  
 
   const UserSkeleton = () => (
     <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-100 bg-white shadow-xs">
@@ -146,9 +198,7 @@ await supabase.from("messages").insert({
     >
       <div
         className="w-full max-w-md h-auto max-h-[90vh] rounded-2xl overflow-hidden shadow-xl flex flex-col border border-slate-100"
-        style={{
-          background: "#ffffff",
-        }}
+        style={{ background: "#ffffff" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -161,10 +211,7 @@ await supabase.from("messages").insert({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full
-                       bg-slate-50 text-slate-400 border border-slate-200/50
-                       hover:bg-slate-100 hover:text-slate-600 active:scale-95 
-                       transition cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 border border-slate-200/50 hover:bg-slate-100 hover:text-slate-600 active:scale-95 transition cursor-pointer"
           >
             <X size={15} />
           </button>
@@ -199,12 +246,70 @@ await supabase.from("messages").insert({
           </div>
         )}
 
-        {/* Search */}
+        {/* 🆕 Email search — for adding new people not in conversations */}
         <div className="px-6 pt-3">
+          <p className="text-[11px] font-semibold text-slate-400 mb-1.5">
+            Add someone new by email
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={emailSearch}
+              onChange={(e) => {
+                setEmailSearch(e.target.value);
+                setEmailSearched(false);
+                setEmailResult(null);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && handleEmailSearch()}
+              placeholder="Enter email address..."
+              className="flex-1 h-9 rounded-xl border border-slate-200 bg-[#f8fafc] px-3 outline-none text-[12px] placeholder:text-slate-400 text-slate-800"
+            />
+            <button
+              onClick={handleEmailSearch}
+              disabled={isEmailSearching || !emailSearch.includes("@")}
+              className="px-3 h-9 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+            >
+              {isEmailSearching ? "..." : <Search size={13} />}
+            </button>
+          </div>
+
+          {/* Email search result */}
+          {emailSearched && emailResult && (
+            <button
+              onClick={addEmailUserToSelection}
+              className="w-full mt-2 flex items-center gap-3 px-3 py-2.5 rounded-xl border border-violet-100 bg-violet-50/50 hover:bg-violet-50 transition cursor-pointer"
+            >
+              <Avatar
+                name={emailResult.full_name}
+                size={32}
+                style={{ background: "linear-gradient(135deg, #7c3aed, #a78bfa)" }}
+              />
+              <span className="flex-1 text-left text-xs font-semibold text-slate-800 truncate">
+                {emailResult.full_name}
+              </span>
+              <span className="text-[11px] font-bold text-violet-600">+ Add</span>
+            </button>
+          )}
+
+          {emailSearched && !emailResult && (
+            <p className="text-[11px] text-slate-400 mt-2 text-center">
+              No user found with this email
+            </p>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="px-6 pt-4 pb-1">
+          <p className="text-[11px] font-semibold text-slate-400">
+            Or select from your conversations
+          </p>
+        </div>
+
+        {/* Search existing partners */}
+        <div className="px-6 pt-2">
           <SearchInput
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search people..."
+            placeholder="Search your contacts..."
             wrapperStyle={{ width: "100%" }}
             inputClassName="w-full h-10 outline-none transition-all duration-200 placeholder:text-slate-400 text-[13px]"
             inputStyle={{
@@ -221,7 +326,7 @@ await supabase.from("messages").insert({
           />
         </div>
 
-        {/* User list */}
+        {/* User list — only existing conversation partners */}
         <div className="px-5 py-4 flex-1 overflow-y-auto space-y-1.5">
           {isLoading ? (
             <>
@@ -231,8 +336,10 @@ await supabase.from("messages").insert({
             </>
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-10">
-              <p className="text-sm font-semibold text-slate-800">No users found</p>
-              <p className="text-xs text-slate-400 mt-1 font-medium">Try another search</p>
+              <p className="text-sm font-semibold text-slate-800">No contacts yet</p>
+              <p className="text-xs text-slate-400 mt-1 font-medium">
+                Start a conversation first, or add someone by email above
+              </p>
             </div>
           ) : (
             filteredUsers.map((u) => {
@@ -253,13 +360,9 @@ await supabase.from("messages").insert({
                   <Avatar
                     name={u.full_name}
                     size={40}
-                    style={{
-                      background: "linear-gradient(135deg, #7c3aed, #a78bfa)",
-                    }}
+                    style={{ background: "linear-gradient(135deg, #7c3aed, #a78bfa)" }}
                   />
-                  <span
-                    className={`flex-1 text-sm truncate ${active ? "font-bold text-violet-950" : "font-semibold text-slate-800"}`}
-                  >
+                  <span className={`flex-1 text-sm truncate ${active ? "font-bold text-violet-950" : "font-semibold text-slate-800"}`}>
                     {u.full_name}
                   </span>
                   {active && (
