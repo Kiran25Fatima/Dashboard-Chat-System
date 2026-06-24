@@ -139,20 +139,22 @@ export default function NewChatModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl overflow-hidden shadow-xl flex flex-col border border-slate-100 bg-white"
+        className="w-full max-w-md rounded-2xl overflow-hidden shadow-xl flex flex-col border border-slate-200/70 bg-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 pt-5 pb-3.5 border-b border-slate-100 flex justify-between items-center">
+        <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex justify-between items-center">
           <div>
-            <h2 className="text-base font-bold text-slate-800">New Message</h2>
+            <h2 className="text-base font-bold text-slate-800 tracking-tight">
+              New Message
+            </h2>
             <p className="text-xs text-slate-400 mt-0.5 font-medium">
-              Enter email to start a conversation
+              Enter an email to start a conversation
             </p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 border border-slate-200/50 hover:bg-slate-100 hover:text-slate-600 active:scale-95 transition cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100 hover:text-slate-600 active:scale-95 transition cursor-pointer"
           >
             <X size={15} />
           </button>
@@ -160,7 +162,7 @@ export default function NewChatModal({
 
         {/* Email Search */}
         <div
-          className="px-6 pt-4 pb-2 flex gap-2"
+          className="px-6 pt-5 pb-2 flex gap-2"
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
         >
           <SearchInput
@@ -193,7 +195,7 @@ export default function NewChatModal({
           <button
             onClick={handleSearch}
             disabled={isSearching || !email.includes("@")}
-            className="px-4 h-10 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+            className="px-5 h-10 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer shadow-sm shadow-indigo-200"
           >
             {isSearching ? "..." : "Search"}
           </button>
@@ -222,7 +224,7 @@ export default function NewChatModal({
               <button
                 onClick={handleInvite}
                 disabled={isInviting}
-                className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer shadow-sm shadow-indigo-200"
               >
                 <Mail size={13} />
                 {isInviting ? "Sending..." : "Send Invite"}
