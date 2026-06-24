@@ -24,14 +24,22 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
- 
+
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
+      (event, session) => {
+        // Ignore token refreshes — same user, no need to update state
+        if (event === "TOKEN_REFRESHED") return;
+
+        setUser((prev) => {
+          const nextUser = session?.user ?? null;
+          // Avoid creating a new reference if it's the same user
+          if (prev?.id === nextUser?.id) return prev;
+          return nextUser;
+        });
       }
     );
- 
+
     return () => subscription.unsubscribe();
   }, [supabase]);
  
